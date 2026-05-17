@@ -1,0 +1,65 @@
+package com.example.baotri.data.repository
+
+import com.example.baotri.data.db.dao.DeviceDao
+import com.example.baotri.data.db.dao.MaintenanceLogDao
+import com.example.baotri.data.model.LogStatus
+import com.example.baotri.domain.model.Device
+import com.example.baotri.domain.model.MaintenanceStatus
+import com.example.baotri.domain.repository.DeviceRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+
+class DeviceRepositoryImpl @Inject constructor(
+    private val deviceDao: DeviceDao,
+    private val logDao: MaintenanceLogDao
+) : DeviceRepository {
+
+    override fun getAllDevices(): Flow<List<Device>> =
+        deviceDao.getAll().map { list ->
+            list.map { entity ->
+                val latest = logDao.getLatestForDevice(entity.id)
+                val status = latest?.status?.let {
+                    when (it) {
+                        LogStatus.RESOLVED      -> MaintenanceStatus.RESOLVED
+                        LogStatus.WAITING_PARTS -> MaintenanceStatus.WAITING_PARTS
+                        LogStatus.UNRESOLVED    -> MaintenanceStatus.UNRESOLVED
+                    }
+                }
+                entity.toDomain(latestStatus = status)
+            }
+        }
+
+    override fun searchDevices(query: String): Flow<List<Device>> =
+        deviceDao.search(query).map { list -> list.map { it.toDomain() } }
+
+    override fun filterByArea(area: String): Flow<List<Device>> =
+        deviceDao.filterByArea(area).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun getDeviceById(id: Long): Device? =
+        deviceDao.findById(id)?.toDomain()
+
+    override suspend fun getDeviceByCode(code: String): Device? =
+        deviceDao.findByCode(code)?.toDomain()
+
+    override suspend fun addDevice(device: Device): Long =
+        deviceDao.insert(device.toEntity())
+
+    override suspend fun updateDevice(device: Device) =
+        deviceDao.update(device.toEntity())
+
+    override suspend fun deleteDevice(deviceId: Long) {
+        val entity = deviceDao.findById(deviceId) ?: return
+        deviceDao.delete(entity)
+    }
+
+    override suspend fun updateQrPath(deviceId: Long, path: String) =
+        deviceDao.updateQrPath(deviceId, path)
+
+    override suspend fun getStats(): Triple<Int, Int, Int> {
+        val total   = deviceDao.count()
+        val pending = deviceDao.countWithPendingIssues()
+        val expired = deviceDao.countExpiredWarranty()
+        return Triple(total, pending, expired)
+    }
+}
