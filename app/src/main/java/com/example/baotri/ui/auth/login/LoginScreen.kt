@@ -30,7 +30,7 @@ import com.example.baotri.ui.shared.theme.*
 
 @Composable
 fun LoginScreen(
-    onNavigateToChangePassword: (Long) -> Unit,
+    onNavigateToChangePassword: (Long, Role) -> Unit,
     onNavigateToKtvDashboard: (Long) -> Unit,
     onNavigateToManagerDashboard: (Long) -> Unit,
     onNavigateToForgotPassword: () -> Unit,
@@ -43,7 +43,7 @@ fun LoginScreen(
     // Handle navigation
     LaunchedEffect(state.navigateTo) {
         when (val nav = state.navigateTo) {
-            is LoginNavEvent.ToChangePassword   -> { onNavigateToChangePassword(nav.userId); vm.clearNavEvent() }
+            is LoginNavEvent.ToChangePassword   -> { onNavigateToChangePassword(nav.userId, nav.role); vm.clearNavEvent() }
             is LoginNavEvent.ToKtvDashboard     -> { onNavigateToKtvDashboard(nav.userId); vm.clearNavEvent() }
             is LoginNavEvent.ToManagerDashboard -> { onNavigateToManagerDashboard(nav.userId); vm.clearNavEvent() }
             null -> {}

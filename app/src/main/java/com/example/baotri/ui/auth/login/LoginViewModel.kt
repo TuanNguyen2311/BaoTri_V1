@@ -24,7 +24,7 @@ data class LoginUiState(
 )
 
 sealed class LoginNavEvent {
-    data class ToChangePassword(val userId: Long) : LoginNavEvent()
+    data class ToChangePassword(val userId: Long, val role: Role) : LoginNavEvent()
     data class ToKtvDashboard(val userId: Long) : LoginNavEvent()
     data class ToManagerDashboard(val userId: Long) : LoginNavEvent()
 }
@@ -57,7 +57,7 @@ class LoginViewModel @Inject constructor(
                 session.saveSession(user.id, user.username, user.fullName, user.role.name)
 
                 val navEvent = when {
-                    user.isFirstLogin           -> LoginNavEvent.ToChangePassword(user.id)
+                    user.isFirstLogin           -> LoginNavEvent.ToChangePassword(user.id, user.role)
                     user.role == Role.MANAGER   -> LoginNavEvent.ToManagerDashboard(user.id)
                     else                        -> LoginNavEvent.ToKtvDashboard(user.id)
                 }

@@ -1,16 +1,18 @@
 package com.example.baotri.ui
 
+import com.example.baotri.domain.model.Role
+
 sealed class Screen(val route: String) {
     // Auth
     object Login         : Screen("login")
-    object ChangePassword : Screen("change_password/{userId}") {
-        fun createRoute(userId: Long) = "change_password/$userId"
+    object ChangePassword : Screen("change_password/{userId}/{role}") {
+        fun createRoute(userId: Long, role: Role) = "change_password/$userId/$role"
     }
-    object SetupPin      : Screen("setup_pin/{userId}") {
-        fun createRoute(userId: Long) = "setup_pin/$userId"
+    object SetupPin      : Screen("setup_pin/{userId}/{role}") {
+        fun createRoute(userId: Long, role: Role) = "setup_pin/$userId/$role"
     }
-    object PinReveal     : Screen("pin_reveal/{userId}") {
-        fun createRoute(userId: Long) = "pin_reveal/$userId"
+    object PinReveal     : Screen("pin_reveal/{userId}/{role}") {
+        fun createRoute(userId: Long, role: Role) = "pin_reveal/$userId/$role"
     }
     object ForgotPassword : Screen("forgot_password")
     object ResetPassword  : Screen("reset_password/{userId}") {

@@ -7,6 +7,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.example.baotri.domain.model.Role
 import com.example.baotri.ui.auth.login.LoginScreen
 import com.example.baotri.ui.auth.setup.*
 import com.example.baotri.ui.ktv.dashboard.KtvDashboardScreen
@@ -33,8 +34,8 @@ fun AppNavGraph() {
         // ── Auth ─────────────────────────────────────────────
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToChangePassword = { userId ->
-                    navController.navigate(Screen.ChangePassword.createRoute(userId)) {
+                onNavigateToChangePassword = { userId, role ->
+                    navController.navigate(Screen.ChangePassword.createRoute(userId, role)) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
@@ -56,13 +57,15 @@ fun AppNavGraph() {
 
         composable(
             route = Screen.ChangePassword.route,
-            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+            arguments = listOf(navArgument("userId") { type = NavType.LongType }, navArgument("role") { type = NavType.StringType })
         ) { back ->
             val userId = back.arguments!!.getLong("userId")
+            val roleString = back.arguments!!.getString("role") ?: Role.MANAGER.name
+            val role = Role.valueOf(roleString)
             ChangePasswordScreen(
                 userId = userId,
                 onNavigateToSetupPin = { uid ->
-                    navController.navigate(Screen.SetupPin.createRoute(uid)) {
+                    navController.navigate(Screen.SetupPin.createRoute(uid, role)) {
                         popUpTo(Screen.ChangePassword.route) { inclusive = true }
                     }
                 }
@@ -71,13 +74,16 @@ fun AppNavGraph() {
 
         composable(
             route = Screen.SetupPin.route,
-            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+            arguments = listOf(navArgument("userId") { type = NavType.LongType }, navArgument("role") { type = NavType.StringType })
         ) { back ->
             val userId = back.arguments!!.getLong("userId")
+            val roleString = back.arguments!!.getString("role") ?: Role.MANAGER.name
+            val role = Role.valueOf(roleString)
+
             SetupPinScreen(
                 userId = userId,
                 onNavigateToPinReveal = { uid, pin ->
-                    navController.navigate(Screen.PinReveal.createRoute(uid) + "?pin=$pin") {
+                    navController.navigate(Screen.PinReveal.createRoute(uid, role) + "?pin=$pin") {
                         popUpTo(Screen.SetupPin.route) { inclusive = true }
                     }
                 }
@@ -88,16 +94,23 @@ fun AppNavGraph() {
             route = Screen.PinReveal.route + "?pin={pin}",
             arguments = listOf(
                 navArgument("userId") { type = NavType.LongType },
+                navArgument("role") { type = NavType.StringType },
                 navArgument("pin") { type = NavType.StringType; defaultValue = "" }
             )
         ) { back ->
             val pin = back.arguments?.getString("pin") ?: ""
+            val roleString = back.arguments!!.getString("role") ?: Role.MANAGER.name
+            val role = Role.valueOf(roleString)
+
             PinRevealScreen(
                 pin = pin,
                 onNavigateToDashboard = {
-                    navController.navigate(Screen.ManagerDashboard.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
+                    if (role == Role.MANAGER)
+                        navController.navigate(Screen.ManagerDashboard.route){
+                        popUpTo(0) { inclusive = true } }
+                    else 
+                        navController.navigate(Screen.KtvDashboard.route) {
+                        popUpTo(0) { inclusive = true } }
                 }
             )
         }
