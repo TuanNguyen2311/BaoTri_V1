@@ -2,7 +2,6 @@ package com.example.baotri.data.db
 
 import android.content.Context
 import androidx.room.*
-import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.baotri.data.db.dao.*
 import com.example.baotri.data.model.*
@@ -13,7 +12,8 @@ import com.example.baotri.util.SecurityUtil
         UserEntity::class,
         DeviceEntity::class,
         MaintenanceLogEntity::class,
-        BackupHistoryEntity::class
+        BackupHistoryEntity::class,
+        LogStatusHistoryEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -25,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun deviceDao(): DeviceDao
     abstract fun maintenanceLogDao(): MaintenanceLogDao
     abstract fun backupHistoryDao(): BackupHistoryDao
+    abstract fun logStatusHistoryDao(): LogStatusHistoryDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

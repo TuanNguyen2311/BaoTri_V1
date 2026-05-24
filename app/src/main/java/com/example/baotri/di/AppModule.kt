@@ -25,6 +25,7 @@ object AppModule {
     @Provides @Singleton fun provideDeviceDao(db: AppDatabase): DeviceDao = db.deviceDao()
     @Provides @Singleton fun provideLogDao(db: AppDatabase): MaintenanceLogDao = db.maintenanceLogDao()
     @Provides @Singleton fun provideBackupHistoryDao(db: AppDatabase): BackupHistoryDao = db.backupHistoryDao()
+    @Provides @Singleton fun provideLogStatusHistoryDao(db: AppDatabase): LogStatusHistoryDao = db.logStatusHistoryDao()
 
     @Provides @Singleton fun provideGson(): Gson = Gson()
 
@@ -37,8 +38,12 @@ object AppModule {
         DeviceRepositoryImpl(deviceDao, logDao)
 
     @Provides @Singleton
-    fun provideLogRepository(logDao: MaintenanceLogDao, deviceDao: DeviceDao): MaintenanceLogRepository =
-        MaintenanceLogRepositoryImpl(logDao, deviceDao)
+    fun provideLogRepository(
+        logDao: MaintenanceLogDao,
+        deviceDao: DeviceDao,
+        historyDao: LogStatusHistoryDao
+    ): MaintenanceLogRepository =
+        MaintenanceLogRepositoryImpl(logDao, deviceDao, historyDao)
 
     @Provides @Singleton
     fun provideBackupRepository(db: AppDatabase, historyDao: BackupHistoryDao, gson: Gson): BackupRepository =

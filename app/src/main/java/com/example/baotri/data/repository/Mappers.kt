@@ -9,20 +9,9 @@ private val gson = Gson()
 
 // ── User ────────────────────────────────────────────────────
 fun UserEntity.toDomain() = User(
-    id          = id,
-    username    = username,
-    role        = if (role == UserRole.MANAGER) Role.MANAGER else Role.TECHNICIAN,
-    fullName    = fullName,
-    isActive    = isActive,
-    isFirstLogin = isFirstLogin
-)
-
-fun User.toEntity(passwordHash: String, pinHash: String? = null, isFirstLogin: Boolean = false) = UserEntity(
     id           = id,
     username     = username,
-    passwordHash = passwordHash,
-    pinHash      = pinHash,
-    role         = if (role == Role.MANAGER) UserRole.MANAGER else UserRole.TECHNICIAN,
+    role         = if (role == UserRole.MANAGER) Role.MANAGER else Role.TECHNICIAN,
     fullName     = fullName,
     isActive     = isActive,
     isFirstLogin = isFirstLogin
@@ -30,18 +19,18 @@ fun User.toEntity(passwordHash: String, pinHash: String? = null, isFirstLogin: B
 
 // ── Device ──────────────────────────────────────────────────
 fun DeviceEntity.toDomain(latestStatus: MaintenanceStatus? = null, logCount: Int = 0) = Device(
-    id            = id,
-    code          = code,
-    name          = name,
-    category      = category,
-    location      = location,
-    buyDate       = buyDate,
-    warrantyDate  = warrantyDate,
-    photoPath     = photoPath,
-    qrPath        = qrPath,
-    notes         = notes,
-    latestStatus  = latestStatus,
-    logCount      = logCount
+    id           = id,
+    code         = code,
+    name         = name,
+    category     = category,
+    location     = location,
+    buyDate      = buyDate,
+    warrantyDate = warrantyDate,
+    photoPath    = photoPath,
+    qrPath       = qrPath,
+    notes        = notes,
+    latestStatus = latestStatus,
+    logCount     = logCount
 )
 
 fun Device.toEntity() = DeviceEntity(
@@ -58,8 +47,44 @@ fun Device.toEntity() = DeviceEntity(
     updatedAt    = System.currentTimeMillis()
 )
 
-// ── MaintenanceLog ──────────────────────────────────────────
-fun MaintenanceLogEntity.toDomain(deviceName: String = "", deviceCode: String = "") = MaintenanceLog(
+// ── LogStatusHistory ─────────────────────────────────────────
+fun LogStatusHistoryEntity.toDomain() = LogStatusHistory(
+    id              = id,
+    logId           = logId,
+    status          = when(status) {
+        LogStatus.RESOLVED      -> MaintenanceStatus.RESOLVED
+        LogStatus.WAITING_PARTS -> MaintenanceStatus.WAITING_PARTS
+        LogStatus.UNRESOLVED    -> MaintenanceStatus.UNRESOLVED
+    },
+    changedByUserId = changedByUserId,
+    changedByName   = changedByName,
+    note            = note,
+    photoPaths      = if (photoPaths.isBlank()) emptyList()
+                      else gson.fromJson(photoPaths, object : TypeToken<List<String>>() {}.type),
+    changedAt       = changedAt
+)
+
+fun LogStatusHistory.toEntity() = LogStatusHistoryEntity(
+    id              = id,
+    logId           = logId,
+    status          = when(status) {
+        MaintenanceStatus.RESOLVED      -> LogStatus.RESOLVED
+        MaintenanceStatus.WAITING_PARTS -> LogStatus.WAITING_PARTS
+        MaintenanceStatus.UNRESOLVED    -> LogStatus.UNRESOLVED
+    },
+    changedByUserId = changedByUserId,
+    changedByName   = changedByName,
+    note            = note,
+    photoPaths      = gson.toJson(photoPaths),
+    changedAt       = changedAt
+)
+
+// ── MaintenanceLog ───────────────────────────────────────────
+fun MaintenanceLogEntity.toDomain(
+    deviceName: String = "",
+    deviceCode: String = "",
+    statusHistory: List<LogStatusHistory> = emptyList()
+) = MaintenanceLog(
     id              = id,
     deviceId        = deviceId,
     deviceName      = deviceName,
@@ -83,7 +108,8 @@ fun MaintenanceLogEntity.toDomain(deviceName: String = "", deviceCode: String = 
     notes           = notes,
     isDraft         = isDraft,
     performedAt     = performedAt,
-    createdAt       = createdAt
+    createdAt       = createdAt,
+    statusHistory   = statusHistory
 )
 
 fun MaintenanceLog.toEntity() = MaintenanceLogEntity(

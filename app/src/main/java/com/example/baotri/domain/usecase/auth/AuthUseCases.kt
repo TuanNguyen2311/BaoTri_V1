@@ -6,11 +6,14 @@ import javax.inject.Inject
 
 class LoginUseCase @Inject constructor(private val repo: UserRepository) {
     suspend operator fun invoke(username: String, password: String): Result<User> {
-        if (username.isBlank()) return Result.failure(Exception("Tên đăng nhập không được để trống"))
-        if (password.isBlank()) return Result.failure(Exception("Mật khẩu không được để trống"))
-        val user = repo.login(username.trim(), password)
+        // Validation nằm ở ViewModel (client-side), UseCase xử lý nghiệp vụ
+        val user = repo.login(username.trim().lowercase(), password)
             ?: return Result.failure(Exception("Tên đăng nhập hoặc mật khẩu không đúng"))
-        if (!user.isActive) return Result.failure(Exception("Tài khoản đã bị vô hiệu hóa"))
+
+        if (!user.isActive)
+            return Result.failure(Exception("Tài khoản đã bị vô hiệu hóa. Liên hệ Quản lý."))
+
+        // Role được nhận diện tự động từ DB — không cần người dùng chọn
         return Result.success(user)
     }
 }
@@ -42,7 +45,6 @@ class SetupPinUseCase @Inject constructor(private val repo: UserRepository) {
 class ForgotPasswordUseCase @Inject constructor(private val repo: UserRepository) {
     suspend fun verifyPin(pin: String): Result<User> {
         if (pin.length != 6) return Result.failure(Exception("PIN phải là 6 chữ số"))
-        // Find manager (admin is the only manager)
         val user = repo.getUserById(1L)
             ?: return Result.failure(Exception("Không tìm thấy tài khoản Quản lý"))
         val valid = repo.verifyPin(user.id, pin)

@@ -15,6 +15,41 @@ class GetUserLogsUseCase @Inject constructor(private val repo: MaintenanceLogRep
         repo.getLogsByUser(userId)
 }
 
+class GetLogWithHistoryUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
+    suspend operator fun invoke(logId: Long): MaintenanceLog? =
+        repo.getLogWithHistory(logId)
+}
+
+class GetStatusHistoryUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
+    operator fun invoke(logId: Long): Flow<List<LogStatusHistory>> =
+        repo.getStatusHistory(logId)
+}
+
+class UpdateLogStatusUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
+    suspend operator fun invoke(
+        logId: Long,
+        newStatus: MaintenanceStatus,
+        changedByUserId: Long,
+        changedByName: String,
+        note: String,
+        photoPaths: List<String>
+    ): Result<Unit> {
+        // Kiểm tra log có thể cập nhật không
+        val log = repo.getLogById(logId)
+            ?: return Result.failure(Exception("Không tìm thấy log"))
+        if (log.isDraft)
+            return Result.failure(Exception("Log nháp chưa thể cập nhật trạng thái"))
+        if (log.status == MaintenanceStatus.RESOLVED)
+            return Result.failure(Exception("Log đã hoàn thành, không thể cập nhật"))
+        return try {
+            repo.updateStatus(logId, newStatus, changedByUserId, changedByName, note, photoPaths)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+
 class SaveLogUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
     suspend operator fun invoke(log: MaintenanceLog): Result<Long> {
         if (log.description.isBlank())

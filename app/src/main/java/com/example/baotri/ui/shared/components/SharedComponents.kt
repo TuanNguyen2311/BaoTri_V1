@@ -64,7 +64,7 @@ fun LoadingButton(
     containerColor: Color = GreenPrimary
 ) {
     Button(
-        onClick = onClick,
+        onClick = {if (!loading) onClick()},
         enabled = enabled && !loading,
         modifier = modifier.height(48.dp),
         colors = ButtonDefaults.buttonColors(containerColor = containerColor),

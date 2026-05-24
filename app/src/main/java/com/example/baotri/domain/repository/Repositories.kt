@@ -29,7 +29,7 @@ interface DeviceRepository {
     suspend fun updateDevice(device: Device)
     suspend fun deleteDevice(deviceId: Long)
     suspend fun updateQrPath(deviceId: Long, path: String)
-    suspend fun getStats(): Triple<Int, Int, Int>  // total, pending, expiredWarranty
+    suspend fun getStats(): Triple<Int, Int, Int>
 }
 
 interface MaintenanceLogRepository {
@@ -37,9 +37,27 @@ interface MaintenanceLogRepository {
     fun getLogsByUser(userId: Long): Flow<List<MaintenanceLog>>
     fun getDraftsByUser(userId: Long): Flow<List<MaintenanceLog>>
     suspend fun getLogById(id: Long): MaintenanceLog?
+
+    // Lấy log kèm toàn bộ status history — dùng cho Bottom Sheet
+    suspend fun getLogWithHistory(logId: Long): MaintenanceLog?
+
+    // Observe history realtime trong Bottom Sheet
+    fun getStatusHistory(logId: Long): Flow<List<LogStatusHistory>>
+
     suspend fun saveLog(log: MaintenanceLog): Long
     suspend fun updateLog(log: MaintenanceLog)
     suspend fun deleteLog(logId: Long)
+
+    // Cập nhật trạng thái: insert history + sync currentStatus trên log
+    suspend fun updateStatus(
+        logId: Long,
+        newStatus: MaintenanceStatus,
+        changedByUserId: Long,
+        changedByName: String,
+        note: String,
+        photoPaths: List<String>
+    )
+
     suspend fun getKtvStats(userId: Long): KtvStats
     suspend fun getManagerStats(): ManagerStats
     suspend fun getLogsInRange(from: Long, to: Long): List<MaintenanceLog>
@@ -49,8 +67,8 @@ interface MaintenanceLogRepository {
 }
 
 interface BackupRepository {
-    suspend fun exportBackup(): ByteArray       // Encrypted .btdb bytes
-    suspend fun importBackup(data: ByteArray)   // Decrypt & restore
+    suspend fun exportBackup(): ByteArray
+    suspend fun importBackup(data: ByteArray)
     fun getBackupHistory(): Flow<List<BackupHistory>>
     suspend fun getLatestBackup(): BackupHistory?
     suspend fun recordBackup(action: String, fileName: String, sizeBytes: Long, destination: String)

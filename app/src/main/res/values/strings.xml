@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">Bảo Trì Thiết Bị</string>
+    <string name="app_subtitle">Hệ thống quản lý bảo trì</string>
+    <string name="app_version">v1.0.0 · Offline mode</string>
+
+    <!-- Login -->
+    <string name="login_title">Đăng nhập</string>
+    <string name="login_username_label">Tên đăng nhập</string>
+    <string name="login_username_placeholder">Nhập tên đăng nhập</string>
+    <string name="login_password_label">Mật khẩu</string>
+    <string name="login_password_placeholder">Nhập mật khẩu</string>
+    <string name="login_remember_me">Ghi nhớ đăng nhập</string>
+    <string name="login_button">Đăng nhập</string>
+    <string name="login_forgot_password">Quên mật khẩu? Dùng mã PIN khẩn cấp</string>
+
+    <!-- Login errors -->
+    <string name="error_username_empty">Vui lòng nhập tên đăng nhập</string>
+    <string name="error_password_empty">Vui lòng nhập mật khẩu</string>
+    <string name="error_invalid_credentials">Tên đăng nhập hoặc mật khẩu không đúng</string>
+    <string name="error_account_disabled">Tài khoản đã bị vô hiệu hóa. Liên hệ Quản lý.</string>
+
+    <!-- Common -->
+    <string name="btn_confirm">Xác nhận</string>
+    <string name="btn_cancel">Hủy</string>
+    <string name="btn_save">Lưu</string>
+    <string name="btn_back">Quay lại</string>
+</resources>

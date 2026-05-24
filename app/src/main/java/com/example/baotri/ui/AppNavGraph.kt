@@ -34,22 +34,23 @@ fun AppNavGraph() {
         // ── Auth ─────────────────────────────────────────────
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToChangePassword = { userId, role ->
+                onNavigateToChangePassword   = { userId, role ->
                     navController.navigate(Screen.ChangePassword.createRoute(userId, role)) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onNavigateToKtvDashboard = { userId ->
+                // ← BỎ tham số userId, chỉ navigate đơn giản
+                onNavigateToKtvDashboard     = {
                     navController.navigate(Screen.KtvDashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onNavigateToManagerDashboard = { userId ->
+                onNavigateToManagerDashboard = {
                     navController.navigate(Screen.ManagerDashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onNavigateToForgotPassword = {
+                onNavigateToForgotPassword   = {
                     navController.navigate(Screen.ForgotPassword.route)
                 }
             )

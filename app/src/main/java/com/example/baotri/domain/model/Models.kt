@@ -24,7 +24,7 @@ data class Device(
     val photoPath: String?,
     val qrPath: String?,
     val notes: String?,
-    val latestStatus: MaintenanceStatus? = null,  // Injected by repo
+    val latestStatus: MaintenanceStatus? = null,
     val logCount: Int = 0
 ) {
     val isWarrantyExpired: Boolean
@@ -60,11 +60,23 @@ enum class MaintenanceStatus {
     }
 }
 
+// ── Log Status History ──────────────────────────────────────
+data class LogStatusHistory(
+    val id: Long,
+    val logId: Long,
+    val status: MaintenanceStatus,
+    val changedByUserId: Long?,
+    val changedByName: String,
+    val note: String,
+    val photoPaths: List<String>,
+    val changedAt: Long
+)
+
 data class MaintenanceLog(
     val id: Long,
     val deviceId: Long,
-    val deviceName: String = "",    // Injected
-    val deviceCode: String = "",    // Injected
+    val deviceName: String = "",
+    val deviceCode: String = "",
     val userId: Long?,
     val performedByName: String,
     val logType: MaintenanceType,
@@ -75,8 +87,12 @@ data class MaintenanceLog(
     val notes: String?,
     val isDraft: Boolean,
     val performedAt: Long,
-    val createdAt: Long
-)
+    val createdAt: Long,
+    val statusHistory: List<LogStatusHistory> = emptyList()
+) {
+    val canUpdateStatus: Boolean
+        get() = !isDraft && status != MaintenanceStatus.RESOLVED
+}
 
 // ── Dashboard Stats ─────────────────────────────────────────
 data class ManagerStats(
@@ -92,7 +108,7 @@ data class KtvStats(
 )
 
 data class WeeklyLogCount(
-    val week: Int,      // 1–5
+    val week: Int,
     val current: Int,
     val previous: Int
 )

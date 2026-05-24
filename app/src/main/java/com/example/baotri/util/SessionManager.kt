@@ -17,11 +17,13 @@ class SessionManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private object Keys {
-        val USER_ID       = longPreferencesKey("user_id")
-        val USERNAME      = stringPreferencesKey("username")
-        val FULL_NAME     = stringPreferencesKey("full_name")
-        val ROLE          = stringPreferencesKey("role")
-        val IS_LOGGED_IN  = booleanPreferencesKey("is_logged_in")
+        val USER_ID          = longPreferencesKey("user_id")
+        val USERNAME         = stringPreferencesKey("username")
+        val FULL_NAME        = stringPreferencesKey("full_name")
+        val ROLE             = stringPreferencesKey("role")
+        val IS_LOGGED_IN     = booleanPreferencesKey("is_logged_in")
+        // Ghi nhớ đăng nhập — chỉ lưu username, KHÔNG lưu password
+        val REMEMBERED_USER  = stringPreferencesKey("remembered_username")
     }
 
     val isLoggedIn: Flow<Boolean> =
@@ -36,6 +38,10 @@ class SessionManager @Inject constructor(
     val currentFullName: Flow<String> =
         context.dataStore.data.map { it[Keys.FULL_NAME] ?: "" }
 
+    // Username được ghi nhớ (không bao giờ lưu password)
+    val rememberedUsername: Flow<String> =
+        context.dataStore.data.map { it[Keys.REMEMBERED_USER] ?: "" }
+
     suspend fun saveSession(userId: Long, username: String, fullName: String, role: String) {
         context.dataStore.edit { prefs ->
             prefs[Keys.USER_ID]      = userId
@@ -46,7 +52,20 @@ class SessionManager @Inject constructor(
         }
     }
 
+    suspend fun saveRememberedUsername(username: String) {
+        context.dataStore.edit { it[Keys.REMEMBERED_USER] = username }
+    }
+
+    suspend fun clearRememberedUsername() {
+        context.dataStore.edit { it.remove(Keys.REMEMBERED_USER) }
+    }
+
     suspend fun clearSession() {
-        context.dataStore.edit { it.clear() }
+        context.dataStore.edit { prefs ->
+            // Xóa session nhưng GIỮ remembered username
+            val remembered = prefs[Keys.REMEMBERED_USER] ?: ""
+            prefs.clear()
+            if (remembered.isNotBlank()) prefs[Keys.REMEMBERED_USER] = remembered
+        }
     }
 }

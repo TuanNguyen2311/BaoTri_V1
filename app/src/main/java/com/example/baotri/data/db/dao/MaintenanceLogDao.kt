@@ -95,6 +95,10 @@ interface MaintenanceLogDao {
 
     @Query("SELECT * FROM maintenance_logs ORDER BY createdAt DESC")
     suspend fun getAll(): List<MaintenanceLogEntity>
+
+    // Sync currentStatus khi có cập nhật trạng thái mới
+    @Query("UPDATE maintenance_logs SET status = :newStatus WHERE id = :logId")
+    suspend fun updateStatus(logId: Long, newStatus: LogStatus)
 }
 
 data class DeviceIncidentCount(
