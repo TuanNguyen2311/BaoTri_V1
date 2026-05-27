@@ -3,7 +3,6 @@ package com.example.baotri.data.repository
 import com.example.baotri.data.db.dao.UserDao
 import com.example.baotri.data.model.UserEntity
 import com.example.baotri.data.model.UserRole
-import com.example.baotri.domain.model.Role
 import com.example.baotri.domain.model.User
 import com.example.baotri.domain.repository.UserRepository
 import com.example.baotri.util.SecurityUtil
@@ -24,6 +23,10 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun getUserById(id: Long): User? =
         dao.findById(id)?.toDomain()
 
+    // ← Thêm mới: tìm user theo username, dùng cho ForgotPassword
+    override suspend fun getUserByUsername(username: String): User? =
+        dao.findByUsername(username)?.toDomain()
+
     override suspend fun changePassword(userId: Long, newPassword: String) {
         dao.updatePassword(userId, SecurityUtil.sha256(newPassword))
     }
@@ -38,25 +41,24 @@ class UserRepositoryImpl @Inject constructor(
         return SecurityUtil.verifyHash(pin, pinHash)
     }
 
-    override suspend fun resetPasswordWithPin(userId: Long, pin: String, newPassword: String): Boolean {
+    override suspend fun resetPasswordWithPin(
+        userId: Long,
+        pin: String,
+        newPassword: String
+    ): Boolean {
         if (!verifyPin(userId, pin)) return false
         changePassword(userId, newPassword)
         return true
     }
 
-    // For forgot password: find manager and verify PIN
-    suspend fun findManagerByPin(pin: String): User? {
-        // We only have 1 manager (admin)
-        val entity = dao.findByUsername("admin") ?: return null
-        val pinHash = entity.pinHash ?: return null
-        if (!SecurityUtil.verifyHash(pin, pinHash)) return null
-        return entity.toDomain()
-    }
-
     override fun getAllTechnicians(): Flow<List<User>> =
         dao.getAllTechnicians().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun createTechnician(username: String, password: String, fullName: String): Long {
+    override suspend fun createTechnician(
+        username: String,
+        password: String,
+        fullName: String
+    ): Long {
         val entity = UserEntity(
             username     = username.lowercase().trim(),
             passwordHash = SecurityUtil.sha256(password),

@@ -1,9 +1,5 @@
 package com.example.baotri.ui
 
-import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
@@ -12,6 +8,7 @@ import com.example.baotri.ui.auth.login.LoginScreen
 import com.example.baotri.ui.auth.setup.*
 import com.example.baotri.ui.ktv.dashboard.KtvDashboardScreen
 import com.example.baotri.ui.ktv.detail.DeviceDetailScreen
+import com.example.baotri.ui.ktv.history.KtvHistoryScreen
 import com.example.baotri.ui.ktv.log.WriteLogScreen
 import com.example.baotri.ui.ktv.scan.ScanScreen
 import com.example.baotri.ui.manager.account.AccountManagementScreen
@@ -21,9 +18,10 @@ import com.example.baotri.ui.manager.device.AddEditDeviceScreen
 import com.example.baotri.ui.manager.device.DeviceListScreen
 import com.example.baotri.ui.manager.report.ReportScreen
 import com.example.baotri.ui.manager.settings.SettingsScreen
-import com.example.baotri.util.SessionManager
-import dagger.hilt.android.EntryPointAccessors
-import javax.inject.Inject
+import androidx.compose.runtime.Composable
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.rememberNavController
+import java.net.URLDecoder
 
 @Composable
 fun AppNavGraph() {
@@ -31,16 +29,15 @@ fun AppNavGraph() {
 
     NavHost(navController = navController, startDestination = Screen.Login.route) {
 
-        // ── Auth ─────────────────────────────────────────────
+        // ── Login ─────────────────────────────────────────────
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToChangePassword   = { userId, role ->
-                    navController.navigate(Screen.ChangePassword.createRoute(userId, role)) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
+                onNavigateToChangePassword = { userId, role ->
+                    navController.navigate(
+                        Screen.ChangePassword.createRoute(userId, role.name)
+                    ) { popUpTo(Screen.Login.route) { inclusive = true } }
                 },
-                // ← BỎ tham số userId, chỉ navigate đơn giản
-                onNavigateToKtvDashboard     = {
+                onNavigateToKtvDashboard = {
                     navController.navigate(Screen.KtvDashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -50,75 +47,30 @@ fun AppNavGraph() {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onNavigateToForgotPassword   = {
-                    navController.navigate(Screen.ForgotPassword.route)
+                // ← Nhận username từ LoginScreen, encode vào route
+                onNavigateToForgotPassword = { username ->
+                    navController.navigate(Screen.ForgotPassword.createRoute(username))
                 }
             )
         }
 
+        // ── ForgotPassword — nhận username qua navArgument ────
         composable(
-            route = Screen.ChangePassword.route,
-            arguments = listOf(navArgument("userId") { type = NavType.LongType }, navArgument("role") { type = NavType.StringType })
-        ) { back ->
-            val userId = back.arguments!!.getLong("userId")
-            val roleString = back.arguments!!.getString("role") ?: Role.MANAGER.name
-            val role = Role.valueOf(roleString)
-            ChangePasswordScreen(
-                userId = userId,
-                onNavigateToSetupPin = { uid ->
-                    navController.navigate(Screen.SetupPin.createRoute(uid, role)) {
-                        popUpTo(Screen.ChangePassword.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(
-            route = Screen.SetupPin.route,
-            arguments = listOf(navArgument("userId") { type = NavType.LongType }, navArgument("role") { type = NavType.StringType })
-        ) { back ->
-            val userId = back.arguments!!.getLong("userId")
-            val roleString = back.arguments!!.getString("role") ?: Role.MANAGER.name
-            val role = Role.valueOf(roleString)
-
-            SetupPinScreen(
-                userId = userId,
-                onNavigateToPinReveal = { uid, pin ->
-                    navController.navigate(Screen.PinReveal.createRoute(uid, role) + "?pin=$pin") {
-                        popUpTo(Screen.SetupPin.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(
-            route = Screen.PinReveal.route + "?pin={pin}",
+            route = Screen.ForgotPassword.route,
             arguments = listOf(
-                navArgument("userId") { type = NavType.LongType },
-                navArgument("role") { type = NavType.StringType },
-                navArgument("pin") { type = NavType.StringType; defaultValue = "" }
-            )
-        ) { back ->
-            val pin = back.arguments?.getString("pin") ?: ""
-            val roleString = back.arguments!!.getString("role") ?: Role.MANAGER.name
-            val role = Role.valueOf(roleString)
-
-            PinRevealScreen(
-                pin = pin,
-                onNavigateToDashboard = {
-                    if (role == Role.MANAGER)
-                        navController.navigate(Screen.ManagerDashboard.route){
-                        popUpTo(0) { inclusive = true } }
-                    else 
-                        navController.navigate(Screen.KtvDashboard.route) {
-                        popUpTo(0) { inclusive = true } }
+                navArgument("username") {
+                    type         = NavType.StringType
+                    defaultValue = ""
                 }
             )
-        }
-
-        composable(Screen.ForgotPassword.route) {
+        ) { backStackEntry ->
+            // Decode URL-encoded username
+            val rawUsername = backStackEntry.arguments?.getString("username") ?: ""
+            val username    = URLDecoder.decode(rawUsername, "UTF-8")
+            // SavedStateHandle trong ForgotPasswordViewModel sẽ tự đọc "username"
+            // từ navArgument — không cần truyền tay
             ForgotPasswordScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack   = { navController.popBackStack() },
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -127,35 +79,84 @@ fun AppNavGraph() {
             )
         }
 
-        // ── KTV ──────────────────────────────────────────────
+        // ── ChangePassword ────────────────────────────────────
+        composable(
+            route = Screen.ChangePassword.route,
+            arguments = listOf(
+                navArgument("userId") { type = NavType.LongType },
+                navArgument("role")   { type = NavType.StringType }
+            )
+        ) { back ->
+            val userId = back.arguments!!.getLong("userId")
+            ChangePasswordScreen(
+                userId = userId,
+                onNavigateToSetupPin = { uid ->
+                    navController.navigate(Screen.SetupPin.createRoute(uid)) {
+                        popUpTo(Screen.ChangePassword.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // ── SetupPin ──────────────────────────────────────────
+        composable(
+            route = Screen.SetupPin.route,
+            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+        ) { back ->
+            val userId = back.arguments!!.getLong("userId")
+            SetupPinScreen(
+                userId = userId,
+                onNavigateToPinReveal = { uid, pin ->
+                    navController.navigate(
+                        Screen.PinReveal.createRoute(uid) + "?pin=$pin"
+                    ) { popUpTo(Screen.SetupPin.route) { inclusive = true } }
+                }
+            )
+        }
+
+        // ── PinReveal ─────────────────────────────────────────
+        composable(
+            route = Screen.PinReveal.route + "?pin={pin}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.LongType },
+                navArgument("pin")    { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { back ->
+            val pin = back.arguments?.getString("pin") ?: ""
+            PinRevealScreen(
+                pin = pin,
+                onNavigateToDashboard = {
+                    navController.navigate(Screen.ManagerDashboard.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // ── KTV ───────────────────────────────────────────────
         composable(Screen.KtvDashboard.route) {
             KtvDashboardScreen(
-                onNavigateToScan = { navController.navigate(Screen.ScanQr.route) },
+                onNavigateToScan   = { navController.navigate(Screen.ScanQr.route) },
                 onNavigateToDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) },
-                onNavigateToHistory = { navController.navigate(Screen.KtvHistory.route) },
+                onNavigateToHistory  = { navController.navigate(Screen.KtvHistory.route) },
                 onNavigateToSettings = { navController.navigate(Screen.KtvSettings.route) }
             )
         }
 
         composable(Screen.ScanQr.route) {
             ScanScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToDevice = { id ->
-                    navController.navigate(Screen.DeviceDetail.createRoute(id))
-                }
+                onNavigateBack     = { navController.popBackStack() },
+                onNavigateToDevice = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
             )
         }
 
         composable(
             route = Screen.DeviceDetail.route,
             arguments = listOf(navArgument("deviceId") { type = NavType.LongType })
-        ) { back ->
-            val deviceId = back.arguments!!.getLong("deviceId")
+        ) {
             DeviceDetailScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToWriteLog = { id ->
-                    navController.navigate(Screen.WriteLog.createRoute(id))
-                }
+                onNavigateBack       = { navController.popBackStack() },
+                onNavigateToWriteLog = { id -> navController.navigate(Screen.WriteLog.createRoute(id)) }
             )
         }
 
@@ -163,7 +164,7 @@ fun AppNavGraph() {
             route = Screen.WriteLog.route,
             arguments = listOf(
                 navArgument("deviceId") { type = NavType.LongType },
-                navArgument("logId") { type = NavType.LongType; defaultValue = 0L }
+                navArgument("logId")    { type = NavType.LongType; defaultValue = 0L }
             )
         ) {
             WriteLogScreen(onNavigateBack = { navController.popBackStack() })
@@ -171,17 +172,15 @@ fun AppNavGraph() {
 
         composable(Screen.KtvHistory.route) {
             KtvHistoryScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack     = { navController.popBackStack() },
                 onNavigateToDevice = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
             )
         }
 
         composable(Screen.KtvSettings.route) {
             SettingsScreen(
-                isManager = false,
-                onLogout = {
-                    navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
-                },
+                isManager          = false,
+                onLogout           = { navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } } },
                 onNavigateToBackup = {},
                 onNavigateToAccounts = {}
             )
@@ -190,17 +189,17 @@ fun AppNavGraph() {
         // ── Manager ───────────────────────────────────────────
         composable(Screen.ManagerDashboard.route) {
             ManagerDashboardScreen(
-                onNavigateToDevices = { navController.navigate(Screen.DeviceList.route) },
-                onNavigateToReports = { navController.navigate(Screen.Reports.route) },
-                onNavigateToSettings = { navController.navigate(Screen.ManagerSettings.route) },
+                onNavigateToDevices      = { navController.navigate(Screen.DeviceList.route) },
+                onNavigateToReports      = { navController.navigate(Screen.Reports.route) },
+                onNavigateToSettings     = { navController.navigate(Screen.ManagerSettings.route) },
                 onNavigateToDeviceDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
             )
         }
 
         composable(Screen.DeviceList.route) {
             DeviceListScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddDevice = { navController.navigate(Screen.AddEditDevice.createRoute(0L)) },
+                onNavigateBack         = { navController.popBackStack() },
+                onNavigateToAddDevice  = { navController.navigate(Screen.AddEditDevice.createRoute(0L)) },
                 onNavigateToEditDevice = { id -> navController.navigate(Screen.AddEditDevice.createRoute(id)) },
                 onNavigateToDeviceDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
             )
@@ -227,26 +226,11 @@ fun AppNavGraph() {
 
         composable(Screen.ManagerSettings.route) {
             SettingsScreen(
-                isManager = true,
-                onLogout = {
-                    navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
-                },
-                onNavigateToBackup = { navController.navigate(Screen.BackupRestore.route) },
+                isManager            = true,
+                onLogout             = { navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } } },
+                onNavigateToBackup   = { navController.navigate(Screen.BackupRestore.route) },
                 onNavigateToAccounts = { navController.navigate(Screen.AccountManagement.route) }
             )
         }
     }
-}
-
-// Placeholder KtvHistoryScreen inline
-@Composable
-private fun KtvHistoryScreen(
-    onNavigateBack: () -> Unit,
-    onNavigateToDevice: (Long) -> Unit
-) {
-    // Full implementation below
-    com.example.baotri.ui.ktv.history.KtvHistoryScreen(
-        onNavigateBack = onNavigateBack,
-        onNavigateToDevice = onNavigateToDevice
-    )
 }
