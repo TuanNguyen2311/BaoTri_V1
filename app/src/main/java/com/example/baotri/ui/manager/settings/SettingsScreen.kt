@@ -247,7 +247,9 @@ fun SettingsScreen(
             text = { Text("Bạn có chắc muốn đăng xuất? Mọi dữ liệu đã lưu vẫn được giữ nguyên.") },
             confirmButton = {
                 Button(
-                    onClick = { vm.logout(); onLogout() },
+                    onClick = {
+                        showLogoutDialog = false
+                        vm.logout(); onLogout() },
                     colors = ButtonDefaults.buttonColors(containerColor = RedColor),
                     shape = RoundedCornerShape(10.dp)
                 ) { Text("Đăng xuất") }

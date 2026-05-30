@@ -1,5 +1,8 @@
 package com.example.baotri.ui
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
@@ -27,7 +30,44 @@ import java.net.URLDecoder
 fun AppNavGraph() {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Screen.Login.route) {
+    val dashboardRoutes = setOf(Screen.KtvDashboard.route, Screen.ManagerDashboard.route)
+
+    NavHost(
+        navController    = navController,
+        startDestination = Screen.Login.route,
+        enterTransition  = {
+            if (targetState.destination.route in dashboardRoutes) {
+                // Login → Dashboard: fade + trượt lên nhẹ
+                fadeIn(tween(420, easing = FastOutSlowInEasing)) +
+                slideInVertically(tween(420, easing = FastOutSlowInEasing)) { it / 8 }
+            } else {
+                // Màn hình con: trượt vào từ phải
+                slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { it } +
+                fadeIn(tween(300))
+            }
+        },
+        exitTransition   = {
+            if (initialState.destination.route == Screen.Login.route &&
+                targetState.destination.route in dashboardRoutes) {
+                // Login thoát: fade out nhanh
+                fadeOut(tween(250))
+            } else {
+                // Màn hình con đẩy sang trái khi push
+                slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 3 } +
+                fadeOut(tween(180))
+            }
+        },
+        popEnterTransition  = {
+            // Back: màn hình trước trượt vào từ trái
+            slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 3 } +
+            fadeIn(tween(300))
+        },
+        popExitTransition   = {
+            // Màn hình hiện tại trượt ra phải khi back
+            slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { it } +
+            fadeOut(tween(200))
+        }
+    ) {
 
         // ── Login ─────────────────────────────────────────────
         composable(Screen.Login.route) {

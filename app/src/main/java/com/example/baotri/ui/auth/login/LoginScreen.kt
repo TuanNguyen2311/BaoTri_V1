@@ -75,7 +75,9 @@ fun LoginScreen(
             onPasswordChange           = vm::onPasswordChange,
             onTogglePassword           = vm::onTogglePassword,
             onNext                     = { focusManager.moveFocus(FocusDirection.Down) },
-            onDone                     = { vm.login() },
+            // Dismiss keyboard ngay khi submit — không chờ kết quả
+            // → keyboard gone trước khi navigation transition bắt đầu → không lag
+            onDone                     = { focusManager.clearFocus(); vm.login() },
             onRememberMeChange         = vm::onRememberMeChange,
             onNavigateToForgotPassword = { onNavigateToForgotPassword(state.username.trim()) }
         )
