@@ -1,8 +1,31 @@
 package com.example.baotri.domain.usecase.auth
 
 import com.example.baotri.domain.model.User
+import com.example.baotri.domain.repository.SessionRepository
 import com.example.baotri.domain.repository.UserRepository
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
+
+class LogoutUseCase @Inject constructor(private val sessionRepository: SessionRepository) {
+    suspend operator fun invoke() = sessionRepository.clearSession()
+}
+
+class SaveSessionUseCase @Inject constructor(private val sessionRepository: SessionRepository) {
+    suspend operator fun invoke(userId: Long, username: String, fullName: String, role: String) =
+        sessionRepository.saveSession(userId, username, fullName, role)
+}
+
+class GetRememberedUsernameUseCase @Inject constructor(private val sessionRepository: SessionRepository) {
+    operator fun invoke(): Flow<String> = sessionRepository.rememberedUsername
+}
+
+class SaveRememberedUsernameUseCase @Inject constructor(private val sessionRepository: SessionRepository) {
+    suspend operator fun invoke(username: String) = sessionRepository.saveRememberedUsername(username)
+}
+
+class ClearRememberedUsernameUseCase @Inject constructor(private val sessionRepository: SessionRepository) {
+    suspend operator fun invoke() = sessionRepository.clearRememberedUsername()
+}
 
 class LoginUseCase @Inject constructor(private val repo: UserRepository) {
     suspend operator fun invoke(username: String, password: String): Result<User> {

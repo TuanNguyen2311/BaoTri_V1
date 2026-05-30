@@ -22,11 +22,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.baotri.domain.model.MaintenanceLog
 import com.example.baotri.domain.model.MaintenanceStatus
+import com.example.baotri.domain.usecase.auth.GetCurrentSessionUseCase
 import com.example.baotri.domain.usecase.log.GetUserLogsUseCase
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
 import com.example.baotri.util.DateUtil
-import com.example.baotri.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -42,7 +42,7 @@ data class KtvHistoryUiState(
 
 @HiltViewModel
 class KtvHistoryViewModel @Inject constructor(
-    private val session: SessionManager,
+    private val getCurrentSession: GetCurrentSessionUseCase,
     private val getUserLogs: GetUserLogsUseCase
 ) : ViewModel() {
 
@@ -51,7 +51,7 @@ class KtvHistoryViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val userId = session.currentUserId.first()
+            val userId = getCurrentSession().userId
             getUserLogs(userId).collect { logs ->
                 val nonDraft = logs.filter { !it.isDraft }
                 _state.update { s -> s.copy(logs = nonDraft, filtered = applyFilter(nonDraft, s.query, s.statusFilter), isLoading = false) }

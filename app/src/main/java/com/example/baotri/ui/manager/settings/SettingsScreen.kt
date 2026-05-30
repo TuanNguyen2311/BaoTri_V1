@@ -8,9 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.baotri.domain.model.Role
 import com.example.baotri.domain.model.User
 import com.example.baotri.domain.repository.UserRepository
-import com.example.baotri.domain.usecase.auth.ChangePasswordUseCase
-import com.example.baotri.domain.usecase.auth.SetupPinUseCase
-import com.example.baotri.util.SessionManager
+import com.example.baotri.domain.usecase.auth.GetCurrentSessionUseCase
+import com.example.baotri.domain.usecase.auth.LogoutUseCase
 import com.example.baotri.util.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -52,7 +51,8 @@ private val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val session: SessionManager,
+    private val getCurrentSession: GetCurrentSessionUseCase,
+    private val logoutUseCase: LogoutUseCase,
     private val userRepo: UserRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -62,7 +62,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val userId = session.currentUserId.first()
+            val userId = getCurrentSession().userId
             val user = userRepo.getUserById(userId)
             val dbFile = context.getDatabasePath("baotri_db")
             val storageUsed = dbFile.length()
@@ -79,7 +79,7 @@ class SettingsViewModel @Inject constructor(
         context.dataStore.edit { it[DARK_MODE_KEY] = newVal }
     }
 
-    fun logout() = viewModelScope.launch { session.clearSession() }
+    fun logout() = viewModelScope.launch { logoutUseCase() }
 }
 
 // ── Screen ─────────────────────────────────────────────────────
