@@ -4316,3 +4316,6 @@
 /app/build/intermediates/project_dex_archive/debug/dexBuilderDebug/out/com/example/baotri/domain/usecase/log/UpdateLogStatusUseCase_Factory.dex
 /app/build/generated/source/kapt/debug/com/example/baotri/domain/usecase/log/UpdateLogStatusUseCase_Factory.java
 /app/build/intermediates/incremental/debug/packageDebugResources/merged.dir/values/values.xml
+/app/build/
+/.idea/
+/.gradle/
