@@ -26,6 +26,9 @@ interface DeviceDao {
     @Query("SELECT * FROM devices WHERE location LIKE '%' || :area || '%' ORDER BY name ASC")
     fun filterByArea(area: String): Flow<List<DeviceEntity>>
 
+    @Query("SELECT * FROM devices ORDER BY id ASC")
+    suspend fun getAllForBackup(): List<DeviceEntity>
+
     @Query("SELECT COUNT(*) FROM devices")
     suspend fun count(): Int
 

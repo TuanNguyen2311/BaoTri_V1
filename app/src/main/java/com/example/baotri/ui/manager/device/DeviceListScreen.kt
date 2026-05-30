@@ -1,14 +1,5 @@
 package com.example.baotri.ui.manager.device
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.baotri.domain.model.Device
-import com.example.baotri.domain.usecase.device.*
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-// ── Screen ─────────────────────────────────────────────────────
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,45 +19,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.baotri.domain.model.Device
 import com.example.baotri.domain.model.MaintenanceStatus
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
-
-data class DeviceListUiState(
-    val devices: List<Device> = emptyList(),
-    val query: String = "",
-    val areaFilter: String = "",
-    val isLoading: Boolean = true
-)
-
-@HiltViewModel
-class DeviceListViewModel @Inject constructor(
-    private val getAllDevices: GetAllDevicesUseCase,
-    private val searchDevices: SearchDevicesUseCase,
-    private val deleteDevice: DeleteDeviceUseCase
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(DeviceListUiState())
-    val state: StateFlow<DeviceListUiState> = _state.asStateFlow()
-    private val _query = MutableStateFlow("")
-
-    init {
-        viewModelScope.launch {
-            _query.debounce(300).flatMapLatest { q ->
-                if (q.isBlank()) getAllDevices() else searchDevices(q)
-            }.collect { list ->
-                _state.update { it.copy(devices = list, isLoading = false) }
-            }
-        }
-    }
-
-    fun onQueryChange(q: String) { _query.value = q; _state.update { it.copy(query = q) } }
-
-    fun deleteDevice(deviceId: Long) = viewModelScope.launch {
-        deleteDevice.invoke(deviceId)
-    }
-}
-
 
 
 @Composable

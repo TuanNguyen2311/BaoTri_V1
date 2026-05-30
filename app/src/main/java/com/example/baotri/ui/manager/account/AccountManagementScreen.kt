@@ -20,65 +20,9 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.baotri.domain.model.User
-import com.example.baotri.domain.repository.UserRepository
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-
-data class AccountUiState(
-    val technicians: List<User> = emptyList(),
-    val showAddDialog: Boolean = false,
-    val newUsername: String = "",
-    val newFullName: String = "",
-    val newPassword: String = "",
-    val isLoading: Boolean = false,
-    val error: String? = null
-)
-
-@HiltViewModel
-class AccountManagementViewModel @Inject constructor(
-    private val userRepo: UserRepository
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(AccountUiState())
-    val state: StateFlow<AccountUiState> = _state.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            userRepo.getAllTechnicians().collect { list ->
-                _state.update { it.copy(technicians = list) }
-            }
-        }
-    }
-
-    fun showAddDialog()  = _state.update { it.copy(showAddDialog = true, error = null) }
-    fun dismissDialog()  = _state.update { it.copy(showAddDialog = false, newUsername = "", newFullName = "", newPassword = "", error = null) }
-    fun onUsernameChange(v: String) = _state.update { it.copy(newUsername = v) }
-    fun onFullNameChange(v: String) = _state.update { it.copy(newFullName = v) }
-    fun onPasswordChange(v: String) = _state.update { it.copy(newPassword = v) }
-
-    fun addTechnician() = viewModelScope.launch {
-        val s = _state.value
-        if (s.newFullName.isBlank()) { _state.update { it.copy(error = "Vui lòng nhập họ tên") }; return@launch }
-        if (s.newUsername.isBlank()) { _state.update { it.copy(error = "Vui lòng nhập tên đăng nhập") }; return@launch }
-        _state.update { it.copy(isLoading = true) }
-        try {
-            userRepo.createTechnician(s.newUsername, s.newPassword.ifBlank { "1234" }, s.newFullName)
-            _state.update { it.copy(isLoading = false, showAddDialog = false, newUsername = "", newFullName = "", newPassword = "") }
-        } catch (e: Exception) {
-            _state.update { it.copy(isLoading = false, error = e.message) }
-        }
-    }
-
-    fun resetPassword(userId: Long) = viewModelScope.launch { userRepo.resetTechnicianPassword(userId) }
-    fun toggleActive(userId: Long, active: Boolean) = viewModelScope.launch { userRepo.setTechnicianActive(userId, !active) }
-}
 
 // ── Screen ─────────────────────────────────────────────────────
 

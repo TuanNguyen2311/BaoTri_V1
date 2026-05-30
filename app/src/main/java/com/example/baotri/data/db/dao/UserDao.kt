@@ -23,6 +23,9 @@ interface UserDao {
     @Query("SELECT COUNT(*) FROM users WHERE role = 'MANAGER'")
     suspend fun countManagers(): Int
 
+    @Query("SELECT * FROM users ORDER BY id ASC")
+    suspend fun getAllForBackup(): List<UserEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(user: UserEntity): Long
 

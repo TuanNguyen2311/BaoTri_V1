@@ -5,6 +5,10 @@ import com.example.baotri.domain.repository.DeviceRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+class GetDeviceByIdUseCase @Inject constructor(private val repo: DeviceRepository) {
+    suspend operator fun invoke(id: Long): Device? = repo.getDeviceById(id)
+}
+
 class GetAllDevicesUseCase @Inject constructor(private val repo: DeviceRepository) {
     operator fun invoke(): Flow<List<Device>> = repo.getAllDevices()
 }

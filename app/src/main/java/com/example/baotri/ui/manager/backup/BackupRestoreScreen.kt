@@ -1,7 +1,5 @@
 package com.example.baotri.ui.manager.backup
 
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,119 +22,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.baotri.domain.model.BackupHistory
-import com.example.baotri.domain.repository.BackupRepository
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
 import com.example.baotri.util.DateUtil
 import com.example.baotri.util.toReadableSize
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import javax.inject.Inject
-
-data class BackupUiState(
-    val history: List<BackupHistory> = emptyList(),
-    val latestBackup: BackupHistory? = null,
-    val isExporting: Boolean = false,
-    val isImporting: Boolean = false,
-    val shareLocal: Boolean = true,
-    val error: String? = null,
-    val successMessage: String? = null
-)
-
-@HiltViewModel
-class BackupViewModel @Inject constructor(
-    private val backupRepo: BackupRepository,
-    @ApplicationContext private val context: Context
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(BackupUiState())
-    val state: StateFlow<BackupUiState> = _state.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            backupRepo.getBackupHistory().collect { list ->
-                _state.update { it.copy(history = list) }
-            }
-        }
-        viewModelScope.launch {
-            val latest = backupRepo.getLatestBackup()
-            _state.update { it.copy(latestBackup = latest) }
-        }
-    }
-
-    fun onDestinationChange(local: Boolean) = _state.update { it.copy(shareLocal = local) }
-
-    fun export() = viewModelScope.launch {
-        _state.update { it.copy(isExporting = true, error = null, successMessage = null) }
-        try {
-            val data = backupRepo.exportBackup()
-            val timestamp = DateUtil.format(System.currentTimeMillis()).replace("/", "")
-            val time = DateUtil.formatTime(System.currentTimeMillis()).replace(":", "")
-            val fileName = "backup_${timestamp}_${time}.btdb"
-
-            if (_state.value.shareLocal) {
-                // Save to Downloads
-                val dir = context.getExternalFilesDir(null) ?: context.filesDir
-                val file = File(dir, fileName)
-                FileOutputStream(file).use { it.write(data) }
-                backupRepo.recordBackup("EXPORT", fileName, data.size.toLong(), "local")
-                _state.update { it.copy(
-                    isExporting = false,
-                    successMessage = "Đã lưu: ${file.absolutePath}",
-                    latestBackup = backupRepo.getLatestBackup()
-                )}
-            } else {
-                // Share via Intent
-                val dir = context.cacheDir
-                val file = File(dir, fileName)
-                FileOutputStream(file).use { it.write(data) }
-                val uri = androidx.core.content.FileProvider.getUriForFile(
-                    context, "${context.packageName}.provider", file
-                )
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/octet-stream"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                val chooser = Intent.createChooser(shareIntent, "Chia sẻ file backup")
-                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(chooser)
-                backupRepo.recordBackup("EXPORT", fileName, data.size.toLong(), "share")
-                _state.update { it.copy(isExporting = false, successMessage = "Đã mở hộp thoại chia sẻ") }
-            }
-        } catch (e: Exception) {
-            _state.update { it.copy(isExporting = false, error = "Xuất thất bại: ${e.message}") }
-        }
-    }
-
-    fun import(uri: Uri) = viewModelScope.launch {
-        _state.update { it.copy(isImporting = true, error = null, successMessage = null) }
-        try {
-            val data = context.contentResolver.openInputStream(uri)?.readBytes()
-                ?: throw Exception("Không đọc được file")
-            backupRepo.importBackup(data)
-            val fileName = uri.lastPathSegment ?: "unknown.btdb"
-            backupRepo.recordBackup("IMPORT", fileName, data.size.toLong(), "local")
-            _state.update { it.copy(isImporting = false, successMessage = "Khôi phục dữ liệu thành công!") }
-        } catch (e: Exception) {
-            _state.update { it.copy(
-                isImporting = false,
-                error = if (e.message?.contains("tampered") == true)
-                    "File không hợp lệ hoặc đã bị chỉnh sửa. Vui lòng dùng file backup gốc."
-                else "Khôi phục thất bại: ${e.message}"
-            )}
-        }
-    }
-
-    fun clearMessages() = _state.update { it.copy(error = null, successMessage = null) }
-}
 
 // ── Screen ─────────────────────────────────────────────────────
 

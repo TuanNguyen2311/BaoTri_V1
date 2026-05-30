@@ -1,17 +1,5 @@
 package com.example.baotri.ui.manager.dashboard
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.baotri.domain.model.*
-import com.example.baotri.domain.usecase.log.GetManagerStatsUseCase
-import com.example.baotri.domain.usecase.log.GetReportUseCase
-import com.example.baotri.util.DateUtil
-import com.example.baotri.util.SessionManager
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,63 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.baotri.domain.model.WeeklyLogCount
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
-
-data class ManagerDashboardUiState(
-    val fullName: String = "",
-    val stats: ManagerStats = ManagerStats(0, 0, 0, 0),
-    val weeklyData: List<WeeklyLogCount> = emptyList(),
-    val alerts: List<DeviceAlert> = emptyList(),
-    val isLoading: Boolean = true
-)
-
-data class DeviceAlert(
-    val device: Device,
-    val alertType: AlertType
-)
-
-enum class AlertType { URGENT, WAITING, WARRANTY, STABLE }
-
-@HiltViewModel
-class ManagerDashboardViewModel @Inject constructor(
-    private val session: SessionManager,
-    private val getStats: GetManagerStatsUseCase,
-    private val getReport: GetReportUseCase
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(ManagerDashboardUiState())
-    val state: StateFlow<ManagerDashboardUiState> = _state.asStateFlow()
-
-    init { load() }
-
-    fun load() = viewModelScope.launch {
-        val fullName = session.currentFullName.first()
-        val stats = getStats()
-        val now = System.currentTimeMillis()
-        val monthStart = DateUtil.startOfMonth(now)
-        val monthEnd = DateUtil.endOfMonth(now)
-        val weekly = getReport.getWeeklyStats(monthStart, monthEnd)
-        val topDevices = getReport.getTopDevices(monthStart, monthEnd)
-
-        val alerts = topDevices.take(5).map { incident ->
-            val alertType = when (incident.device.latestStatus) {
-                MaintenanceStatus.UNRESOLVED    -> AlertType.URGENT
-                MaintenanceStatus.WAITING_PARTS -> AlertType.WAITING
-                else -> if (incident.device.isWarrantyExpired) AlertType.WARRANTY else AlertType.STABLE
-            }
-            DeviceAlert(device = incident.device, alertType = alertType)
-        }.sortedBy { it.alertType.ordinal }
-
-        _state.value = ManagerDashboardUiState(
-            fullName = fullName,
-            stats = stats,
-            weeklyData = weekly,
-            alerts = alerts,
-            isLoading = false
-        )
-    }
-}
 
 // ── Screen ─────────────────────────────────────────────────────
 
