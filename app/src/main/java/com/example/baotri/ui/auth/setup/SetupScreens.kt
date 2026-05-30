@@ -97,7 +97,7 @@ fun ChangePasswordScreen(
 
         // Strength bar
         Spacer(Modifier.height(8.dp))
-        PasswordStrengthBar(strength = vm.passwordStrength)
+        PasswordStrengthBar(strength = state.passwordStrength)
 
         Spacer(Modifier.height(14.dp))
 
@@ -155,7 +155,7 @@ fun SetupPinScreen(
 
     LaunchedEffect(state.navigateToPinReveal) {
         if (state.navigateToPinReveal) {
-            onNavigateToPinReveal(userId, vm.getEnteredPin())
+            onNavigateToPinReveal(userId, state.enteredPin)
             vm.clearNav()
         }
     }

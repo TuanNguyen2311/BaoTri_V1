@@ -16,6 +16,7 @@ import javax.inject.Inject
 data class ChangePasswordUiState(
     val newPassword: String = "",
     val confirmPassword: String = "",
+    val passwordStrength: Int = 0,
     val isLoading: Boolean = false,
     val error: String? = null,
     val navigateToSetupPin: Boolean = false
@@ -25,6 +26,7 @@ data class ChangePasswordUiState(
 data class SetupPinUiState(
     val pin: String = "",
     val confirmPin: String = "",
+    val enteredPin: String = "",
     val step: PinStep = PinStep.ENTER,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -47,17 +49,18 @@ class ChangePasswordViewModel @Inject constructor(
     private val _state = MutableStateFlow(ChangePasswordUiState())
     val state: StateFlow<ChangePasswordUiState> = _state.asStateFlow()
 
-    fun onNewPasswordChange(v: String) = _state.update { it.copy(newPassword = v, error = null) }
+    fun onNewPasswordChange(v: String) = _state.update {
+        it.copy(newPassword = v, error = null, passwordStrength = computeStrength(v))
+    }
     fun onConfirmPasswordChange(v: String) = _state.update { it.copy(confirmPassword = v, error = null) }
 
-    val passwordStrength: Int get() {
-        val pw = _state.value.newPassword
+    private fun computeStrength(pw: String): Int {
         var score = 0
         if (pw.length >= 6) score++
         if (pw.any { it.isUpperCase() }) score++
         if (pw.any { it.isLowerCase() }) score++
         if (pw.any { it.isDigit() }) score++
-        return score  // 0-4
+        return score
     }
 
     fun confirm(userId: Long) = viewModelScope.launch {
@@ -80,8 +83,6 @@ class SetupPinViewModel @Inject constructor(
     private val _state = MutableStateFlow(SetupPinUiState())
     val state: StateFlow<SetupPinUiState> = _state.asStateFlow()
 
-    private var enteredPin = ""
-
     fun onDigitEntered(digit: String, userId: Long) {
         val current = _state.value
         when (current.step) {
@@ -89,8 +90,7 @@ class SetupPinViewModel @Inject constructor(
                 val newPin = (current.pin + digit).take(6)
                 _state.update { it.copy(pin = newPin, error = null) }
                 if (newPin.length == 6) {
-                    enteredPin = newPin
-                    _state.update { it.copy(step = PinStep.CONFIRM, pin = "", error = null) }
+                    _state.update { it.copy(enteredPin = newPin, step = PinStep.CONFIRM, pin = "", error = null) }
                 }
             }
             PinStep.CONFIRM -> {
@@ -112,21 +112,17 @@ class SetupPinViewModel @Inject constructor(
     }
 
     private fun savePin(userId: Long, confirm: String) = viewModelScope.launch {
+        val enteredPin = _state.value.enteredPin
         _state.update { it.copy(isLoading = true) }
         setupPinUseCase(userId, enteredPin, confirm)
             .onSuccess { _state.update { it.copy(isLoading = false, navigateToPinReveal = true) } }
             .onFailure { e ->
                 _state.update { it.copy(
-                    isLoading = false,
-                    error = e.message,
-                    step = PinStep.ENTER,
-                    pin = "",
-                    confirmPin = ""
+                    isLoading = false, error = e.message,
+                    step = PinStep.ENTER, pin = "", confirmPin = "", enteredPin = ""
                 )}
-                enteredPin = ""
             }
     }
 
     fun clearNav() = _state.update { it.copy(navigateToPinReveal = false) }
-    fun getEnteredPin() = enteredPin
 }
