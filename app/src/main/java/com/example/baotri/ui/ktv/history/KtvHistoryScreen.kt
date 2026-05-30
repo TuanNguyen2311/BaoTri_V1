@@ -80,19 +80,13 @@ class KtvHistoryViewModel @Inject constructor(
 
 @Composable
 fun KtvHistoryScreen(
-    onNavigateBack: () -> Unit,
     onNavigateToDevice: (Long) -> Unit,
     vm: KtvHistoryViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
 
     Scaffold(
-        topBar = {
-            BaoTriTopBar(
-                title = "Lịch sử của tôi",
-                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, null) } }
-            )
-        }
+        topBar = { BaoTriTopBar(title = "Lịch sử của tôi") }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             // Search bar

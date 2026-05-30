@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -30,71 +31,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.baotri.domain.usecase.device.GetDeviceByCodeUseCase
 import com.example.baotri.ui.shared.theme.*
 import com.google.accompanist.permissions.*
 import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import javax.inject.Inject
 
-// ── ViewModel ─────────────────────────────────────────────────
-data class ScanUiState(
-    val manualCode: String = "",
-    val isSearching: Boolean = false,
-    val error: String? = null,
-    val navigateToDevice: Long? = null,
-    val flashOn: Boolean = false
-)
-
-@HiltViewModel
-class ScanViewModel @Inject constructor(
-    private val getDeviceByCode: GetDeviceByCodeUseCase
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(ScanUiState())
-    val state: StateFlow<ScanUiState> = _state.asStateFlow()
-
-    private var lastScanned = ""
-
-    fun onQrScanned(code: String) {
-        if (code == lastScanned || _state.value.navigateToDevice != null) return
-        lastScanned = code
-        findDevice(code)
-    }
-
-    fun onManualCodeChange(v: String) = _state.update { it.copy(manualCode = v, error = null) }
-
-    fun searchManual() {
-        val code = _state.value.manualCode.trim()
-        if (code.isBlank()) return
-        findDevice(code)
-    }
-
-    private fun findDevice(code: String) = viewModelScope.launch {
-        _state.update { it.copy(isSearching = true, error = null) }
-        getDeviceByCode(code)
-            .onSuccess { device ->
-                _state.update { it.copy(isSearching = false, navigateToDevice = device.id) }
-            }
-            .onFailure { e ->
-                lastScanned = ""
-                _state.update { it.copy(isSearching = false, error = e.message) }
-            }
-    }
-
-    fun toggleFlash() = _state.update { it.copy(flashOn = !it.flashOn) }
-    fun clearNav() { _state.update { it.copy(navigateToDevice = null) }; lastScanned = "" }
-}
-
-// ── Screen ────────────────────────────────────────────────────
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ScanScreen(
@@ -114,19 +57,19 @@ fun ScanScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // ── Camera Viewfinder ──────────────────────────────
+
+        // ── Camera viewfinder ──────────────────────────────────
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             if (cameraPermission.status.isGranted) {
-                CameraPreview(
-                    flashOn = state.flashOn,
-                    onQrDetected = vm::onQrScanned
-                )
+                CameraPreview(flashOn = state.flashOn, onQrDetected = vm::onQrScanned)
             } else {
-                Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A)),
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A)),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.CameraAlt, null, tint = Color.White.copy(.5f),
-                            modifier = Modifier.size(48.dp))
+                        Icon(Icons.Default.CameraAlt, null,
+                            tint = Color.White.copy(.5f), modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(12.dp))
                         Text("Cần quyền truy cập Camera", color = Color.White.copy(.7f))
                         Spacer(Modifier.height(8.dp))
@@ -137,14 +80,19 @@ fun ScanScreen(
                 }
             }
 
-            // Topbar overlay
+            // Topbar overlay — statusBarsPadding() để tránh bị status bar che
             Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp).align(Alignment.TopCenter),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .align(Alignment.TopCenter),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CircleIconButton(icon = Icons.Default.ArrowBack, onClick = onNavigateBack)
-                Text("Scan thiết bị", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text("Scan thiết bị", color = Color.White,
+                    fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 CircleIconButton(
                     icon = if (state.flashOn) Icons.Default.FlashOff else Icons.Default.FlashOn,
                     onClick = vm::toggleFlash
@@ -158,7 +106,8 @@ fun ScanScreen(
             Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp)) {
                 Box(
                     modifier = Modifier.clip(RoundedCornerShape(99.dp))
-                        .background(Color.Black.copy(.55f)).padding(horizontal = 16.dp, vertical = 6.dp)
+                        .background(Color.Black.copy(.55f))
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text("Đưa mã vào khung để quét", color = Color.White, fontSize = 12.sp)
                 }
@@ -166,19 +115,22 @@ fun ScanScreen(
 
             // Loading overlay
             if (state.isSearching) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(.4f)),
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(.4f)),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(color = Color(0xFF00D49B))
                 }
             }
         }
 
-        // ── Bottom Panel ───────────────────────────────────
+        // ── Bottom panel — navigationBarsPadding() để tránh bị nav bar che
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.background)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -206,7 +158,8 @@ fun ScanScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { vm.searchManual() }),
                     shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenPrimary, unfocusedBorderColor = BorderColor)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary, unfocusedBorderColor = BorderColor)
                 )
                 Button(
                     onClick = vm::searchManual,
@@ -229,7 +182,7 @@ fun ScanScreen(
 }
 
 @Composable
-private fun CircleIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun CircleIconButton(icon: ImageVector, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(36.dp).clip(CircleShape)
             .background(Color.Black.copy(.45f)).clickable(onClick = onClick),
@@ -299,7 +252,8 @@ private fun CameraPreview(flashOn: Boolean, onQrDetected: (String) -> Unit) {
                     .also { ia ->
                         ia.setAnalyzer(executor) { imageProxy ->
                             imageProxy.image?.let { img ->
-                                val inputImage = InputImage.fromMediaImage(img, imageProxy.imageInfo.rotationDegrees)
+                                val inputImage = InputImage.fromMediaImage(
+                                    img, imageProxy.imageInfo.rotationDegrees)
                                 scanner.process(inputImage)
                                     .addOnSuccessListener { barcodes ->
                                         barcodes.firstOrNull()?.rawValue?.let { onQrDetected(it) }

@@ -17,11 +17,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,12 +42,12 @@ fun DeviceDetailScreen(
     onNavigateToWriteLog: (Long) -> Unit,
     vm: DeviceDetailViewModel = hiltViewModel()
 ) {
-    val state     by vm.state.collectAsState()
+    val state      by vm.state.collectAsState()
     val sheetState by vm.sheetState.collectAsState()
     val device = state.device
     val sheetScaffoldState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val now = System.currentTimeMillis()
-    // Show/hide bottom sheet
+
     LaunchedEffect(sheetState.isVisible) {
         if (sheetState.isVisible) sheetScaffoldState.show()
         else sheetScaffoldState.hide()
@@ -62,16 +63,26 @@ fun DeviceDetailScreen(
             )
         },
         bottomBar = {
-            Surface(shadowElevation = 4.dp) {
-                Button(
-                    onClick = { device?.let { onNavigateToWriteLog(it.id) } },
-                    modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                    shape = RoundedCornerShape(14.dp)
+            if (state.isKtv && device != null) {
+                Surface(
+                    shadowElevation = 8.dp,
+                    color = MaterialTheme.colorScheme.background
                 ) {
-                    Icon(Icons.Default.AddTask, null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Ghi maintenance log", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Column(Modifier.navigationBarsPadding()) {
+                        Button(
+                            onClick = { onNavigateToWriteLog(device.id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.AddTask, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Ghi maintenance log", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        }
+                    }
                 }
             }
         }
@@ -84,63 +95,15 @@ fun DeviceDetailScreen(
         }
 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // ── Hero + Info ────────────────────────────────
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(96.dp).background(
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            listOf(GreenPrimary, Color(0xFF1A9B7B))
-                        )
-                    ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (device.photoPath != null) {
-                        AsyncImage(model = device.photoPath, contentDescription = null,
-                            modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    } else {
-                        Icon(Icons.Default.Settings, null,
-                            tint = Color.White.copy(.85f), modifier = Modifier.size(52.dp))
-                    }
-                }
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(device.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Mã: ${device.code} · ${device.category}",
-                        style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        InfoCell("Vị trí", device.location, modifier = Modifier.weight(1f))
-                        InfoCell("Ngày mua", device.buyDate?.let { DateUtil.format(it) } ?: "—", modifier = Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        InfoCell(
-                            label = "Hạn bảo hành",
-                            value = device.warrantyDate?.let { DateUtil.format(it) } ?: "—",
-                            valueColor = if (device.isWarrantyExpired(now)) AmberColor else null,
-                            modifier = Modifier.weight(1f)
-                        )
-                        InfoCell("Danh mục", device.category, modifier = Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        StatusBadge(status = device.latestStatus ?: MaintenanceStatus.RESOLVED)
 
-                        if (device.isWarrantyExpired(now))
-                            Text("⚠ Hết bảo hành", fontSize = 12.sp, color = AmberColor, fontWeight = FontWeight.Medium)
-                        else if (device.isWarrantyExpiringSoon(now))
-                            Text("⚠ Sắp hết bảo hành", fontSize = 12.sp, color = AmberColor)
-                    }
-                }
-                HorizontalDivider(color = BorderColor)
+            // ── Device info card ───────────────────────────────
+            item {
+                DeviceInfoCard(device = device, now = now)
             }
 
-            // ── Log list ───────────────────────────────────
+            // ── Log history section ────────────────────────────
             item {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
                 SectionTitle("Lịch sử bảo trì")
                 Spacer(Modifier.height(8.dp))
             }
@@ -151,17 +114,15 @@ fun DeviceDetailScreen(
                 }
             } else {
                 items(state.logs) { log ->
-                    LogSummaryItem(
-                        log     = log,
-                        onClick = { vm.openLogDetail(log.id) }
-                    )
+                    LogSummaryItem(log = log, onClick = { vm.openLogDetail(log.id) })
                 }
             }
-            item { Spacer(Modifier.height(80.dp)) }
+
+            item { Spacer(Modifier.height(16.dp)) }
         }
     }
 
-    // ── Bottom Sheet chi tiết log ──────────────────────────
+    // ── Bottom Sheet chi tiết log ──────────────────────────────
     if (sheetState.isVisible) {
         ModalBottomSheet(
             onDismissRequest = vm::closeSheet,
@@ -170,8 +131,8 @@ fun DeviceDetailScreen(
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             LogDetailBottomSheet(
-                state  = sheetState,
-                onClose = vm::closeSheet,
+                state            = sheetState,
+                onClose          = vm::closeSheet,
                 onShowUpdateForm = vm::showUpdateForm,
                 onHideUpdateForm = vm::hideUpdateForm,
                 onStatusChange   = vm::onUpdateStatusChange,
@@ -184,16 +145,173 @@ fun DeviceDetailScreen(
     }
 }
 
-// ── Log Summary Item (danh sách) ──────────────────────────────
+// ── Device Info Card ──────────────────────────────────────────
+@Composable
+private fun DeviceInfoCard(device: com.example.baotri.domain.model.Device, now: Long) {
+    var showFullPhoto by remember { mutableStateOf(false) }
+    val photoModel = device.photoPath?.let {
+        if (it.startsWith("/")) java.io.File(it) else it
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            // Row: info bên trái + thumbnail bên phải
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                // Cột thông tin
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(device.name,
+                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("${device.code} · ${device.category}",
+                        fontSize = 12.sp, color = TextSecondary,
+                        modifier = Modifier.padding(top = 2.dp))
+
+                    Spacer(Modifier.height(12.dp))
+
+                    StatusBadge(status = device.latestStatus ?: MaintenanceStatus.RESOLVED)
+                    when {
+                        device.isWarrantyExpired(now) -> {
+                            Spacer(Modifier.height(6.dp))
+                            WarrantyChip("Hết bảo hành", AmberColor, AmberLight)
+                        }
+                        device.isWarrantyExpiringSoon(now) -> {
+                            Spacer(Modifier.height(6.dp))
+                            WarrantyChip("Sắp hết bảo hành", AmberColor, AmberLight)
+                        }
+                    }
+                }
+
+                // Thumbnail bên phải (chỉ hiện khi có ảnh)
+                if (photoModel != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showFullPhoto = true }
+                    ) {
+                        AsyncImage(
+                            model = photoModel, contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(6.dp)
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.45f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ZoomIn, null,
+                                tint = Color.White, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = BorderColor, thickness = 0.5.dp)
+
+            // Thông tin chi tiết
+            InfoIconRow(icon = Icons.Default.LocationOn,    label = "Vị trí",        value = device.location)
+            Spacer(Modifier.height(10.dp))
+            InfoIconRow(icon = Icons.Default.CalendarToday, label = "Ngày mua",
+                value = device.buyDate?.let { DateUtil.format(it) } ?: "—")
+            Spacer(Modifier.height(10.dp))
+            InfoIconRow(
+                icon       = Icons.Default.VerifiedUser,
+                label      = "Hạn bảo hành",
+                value      = device.warrantyDate?.let { DateUtil.format(it) } ?: "—",
+                valueColor = if (device.isWarrantyExpired(now)) AmberColor else null
+            )
+        }
+    }
+
+    // Dialog xem ảnh full (đặt ngoài Card để không bị clip)
+    if (showFullPhoto && photoModel != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showFullPhoto = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { showFullPhoto = false },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = photoModel, contentDescription = null,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoIconRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    valueColor: Color? = null
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+        }
+        Column {
+            Text(label, fontSize = 11.sp, color = TextTertiary)
+            Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                color = valueColor ?: MaterialTheme.colorScheme.onBackground)
+        }
+    }
+}
+
+@Composable
+private fun WarrantyChip(label: String, fg: Color, bg: Color) {
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(bg)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = fg)
+    }
+}
+
+// ── Log Summary Item ──────────────────────────────────────────
 @Composable
 private fun LogSummaryItem(log: com.example.baotri.domain.model.MaintenanceLog, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Timeline dot
         val dotColor = when (log.status) {
             MaintenanceStatus.RESOLVED      -> GreenPrimary
             MaintenanceStatus.WAITING_PARTS -> AmberColor
@@ -239,7 +357,6 @@ private fun LogDetailBottomSheet(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 32.dp)
     ) {
-        // Header
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -257,7 +374,6 @@ private fun LogDetailBottomSheet(
             return@Column
         }
 
-        // ── Thông tin log ban đầu ──────────────────────────
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             DetailRow("Loại bảo trì", log.logType.displayName())
             Spacer(Modifier.height(10.dp))
@@ -270,7 +386,6 @@ private fun LogDetailBottomSheet(
             }
         }
 
-        // ── Ảnh đính kèm ban đầu ─────────────────────────
         if (log.photoPaths.isNotEmpty()) {
             HorizontalDivider(color = BorderColor)
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -280,25 +395,20 @@ private fun LogDetailBottomSheet(
             }
         }
 
-        // ── Timeline trạng thái ───────────────────────────
         HorizontalDivider(color = BorderColor)
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text("Lịch sử trạng thái".uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = TextTertiary, letterSpacing = 0.6.sp,
                 modifier = Modifier.padding(bottom = 12.dp))
-
             log.statusHistory.forEachIndexed { idx, history ->
-                val isLast = idx == log.statusHistory.lastIndex
-                StatusTimelineItem(history = history, isLast = isLast)
+                StatusTimelineItem(history = history, isLast = idx == log.statusHistory.lastIndex)
             }
         }
 
-        // ── Form cập nhật trạng thái ──────────────────────
         if (log.canUpdateStatus) {
             HorizontalDivider(color = BorderColor)
             if (!state.showUpdateForm) {
-                // Nút mở form
                 Button(
                     onClick = onShowUpdateForm,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(46.dp),
@@ -310,22 +420,20 @@ private fun LogDetailBottomSheet(
                     Text("Cập nhật trạng thái", fontWeight = FontWeight.SemiBold)
                 }
             } else {
-                // Form cập nhật
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Text("Cập nhật trạng thái".uppercase(),
                         style = MaterialTheme.typography.labelSmall,
                         color = TextTertiary, letterSpacing = 0.6.sp)
                     Spacer(Modifier.height(12.dp))
 
-                    // Status chips — chỉ cho chọn RESOLVED hoặc UNRESOLVED (không cho chọn lại WAITING)
                     Text("Trạng thái mới *", style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(MaintenanceStatus.RESOLVED, MaintenanceStatus.UNRESOLVED).forEach { s ->
                             val selected = state.selectedStatus == s
                             val (bg, fg) = when (s) {
-                                MaintenanceStatus.RESOLVED  -> Pair(GreenLight, GreenPrimary)
-                                else                        -> Pair(RedLight, RedColor)
+                                MaintenanceStatus.RESOLVED -> Pair(GreenLight, GreenPrimary)
+                                else                       -> Pair(RedLight, RedColor)
                             }
                             Box(
                                 modifier = Modifier
@@ -343,8 +451,6 @@ private fun LogDetailBottomSheet(
                     }
 
                     Spacer(Modifier.height(12.dp))
-
-                    // Ghi chú
                     Text("Ghi chú", style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
                     OutlinedTextField(
@@ -358,8 +464,6 @@ private fun LogDetailBottomSheet(
                     )
 
                     Spacer(Modifier.height(12.dp))
-
-                    // Ảnh đính kèm cho bước này
                     Text("Ảnh đính kèm (tùy chọn)", style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -427,14 +531,11 @@ private fun StatusTimelineItem(history: com.example.baotri.domain.model.LogStatu
         MaintenanceStatus.UNRESOLVED    -> Triple(RedColor, RedLight, RedColor)
     }
     Row(modifier = Modifier.fillMaxWidth()) {
-        // Dot + line
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(24.dp)
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(24.dp)) {
             Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(dotColor))
             if (!isLast) {
-                Box(modifier = Modifier.width(2.dp).height(if (history.photoPaths.isNotEmpty()) 100.dp else 60.dp)
+                Box(modifier = Modifier.width(2.dp)
+                    .height(if (history.photoPaths.isNotEmpty()) 100.dp else 60.dp)
                     .background(BorderColor))
             }
         }
@@ -445,10 +546,8 @@ private fun StatusTimelineItem(history: com.example.baotri.domain.model.LogStatu
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier.clip(CircleShape).background(badgeBg)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
+                Box(modifier = Modifier.clip(CircleShape).background(badgeBg)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)) {
                     Text(history.status.displayName(), fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, color = badgeFg)
                 }
@@ -461,7 +560,6 @@ private fun StatusTimelineItem(history: com.example.baotri.domain.model.LogStatu
                 Text("\"${history.note}\"", fontSize = 12.sp, color = TextSecondary,
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
             }
-            // Ảnh đính kèm riêng của bước này
             if (history.photoPaths.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 PhotoGrid(photoPaths = history.photoPaths, size = 56)
@@ -477,8 +575,7 @@ private fun PhotoGrid(photoPaths: List<String>, size: Int = 72) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         photoPaths.forEach { uri ->
             AsyncImage(
-                model = uri,
-                contentDescription = null,
+                model = uri, contentDescription = null,
                 modifier = Modifier.size(size.dp).clip(RoundedCornerShape(8.dp))
                     .border(0.5.dp, BorderColor, RoundedCornerShape(8.dp))
                     .clickable { expandedUri = uri },
@@ -486,13 +583,11 @@ private fun PhotoGrid(photoPaths: List<String>, size: Int = 72) {
             )
         }
     }
-    // Full-screen preview khi tap ảnh
     if (expandedUri != null) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { expandedUri = null }) {
             Box(modifier = Modifier.fillMaxSize().clickable { expandedUri = null }) {
                 AsyncImage(
-                    model = expandedUri,
-                    contentDescription = null,
+                    model = expandedUri, contentDescription = null,
                     modifier = Modifier.fillMaxWidth().align(Alignment.Center),
                     contentScale = ContentScale.Fit
                 )
@@ -502,20 +597,6 @@ private fun PhotoGrid(photoPaths: List<String>, size: Int = 72) {
 }
 
 // ── Helper Composables ────────────────────────────────────────
-@Composable
-private fun InfoCell(
-    label: String, value: String,
-    modifier: Modifier = Modifier,
-    valueColor: Color? = null
-) {
-    Column(modifier = modifier) {
-        Text(label, fontSize = 10.sp, color = TextTertiary, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(2.dp))
-        Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-            color = valueColor ?: MaterialTheme.colorScheme.onBackground)
-    }
-}
-
 @Composable
 private fun DetailRow(label: String, value: String) {
     Column {

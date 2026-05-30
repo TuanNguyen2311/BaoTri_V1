@@ -11,16 +11,13 @@ import androidx.navigation.navArgument
 import com.example.baotri.domain.model.Role
 import com.example.baotri.ui.auth.login.LoginScreen
 import com.example.baotri.ui.auth.setup.*
-import com.example.baotri.ui.ktv.dashboard.KtvDashboardScreen
+import com.example.baotri.ui.ktv.KtvTabsHost
 import com.example.baotri.ui.ktv.detail.DeviceDetailScreen
-import com.example.baotri.ui.ktv.history.KtvHistoryScreen
 import com.example.baotri.ui.ktv.log.WriteLogScreen
-import com.example.baotri.ui.ktv.scan.ScanScreen
 import com.example.baotri.ui.manager.account.AccountManagementScreen
 import com.example.baotri.ui.manager.backup.BackupRestoreScreen
 import com.example.baotri.ui.manager.ManagerTabsHost
 import com.example.baotri.ui.manager.device.AddEditDeviceScreen
-import com.example.baotri.ui.manager.settings.SettingsScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.net.URLDecoder
 
@@ -28,7 +25,7 @@ import java.net.URLDecoder
 fun AppNavGraph() {
     val navController = rememberNavController()
 
-    val dashboardRoutes = setOf(Screen.KtvDashboard.route, Screen.ManagerTabs.route)
+    val dashboardRoutes = setOf(Screen.KtvTabs.route, Screen.ManagerTabs.route)
 
     NavHost(
         navController    = navController,
@@ -76,7 +73,7 @@ fun AppNavGraph() {
                     ) { popUpTo(Screen.Login.route) { inclusive = true } }
                 },
                 onNavigateToKtvDashboard = {
-                    navController.navigate(Screen.KtvDashboard.route) {
+                    navController.navigate(Screen.KtvTabs.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
@@ -117,11 +114,12 @@ fun AppNavGraph() {
             )
         ) { back ->
             val userId = back.arguments!!.getLong("userId")
+            val role   = back.arguments!!.getString("role") ?: ""
             ChangePasswordScreen(
                 userId = userId,
                 // Không pop ChangePassword → SetupPin có thể back về đây
                 onNavigateToSetupPin = { uid ->
-                    navController.navigate(Screen.SetupPin.createRoute(uid))
+                    navController.navigate(Screen.SetupPin.createRoute(uid, role))
                 }
             )
         }
@@ -129,16 +127,20 @@ fun AppNavGraph() {
         // ── SetupPin ──────────────────────────────────────────
         composable(
             route = Screen.SetupPin.route,
-            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+            arguments = listOf(
+                navArgument("userId") { type = NavType.LongType },
+                navArgument("role")   { type = NavType.StringType }
+            )
         ) { back ->
             val userId = back.arguments!!.getLong("userId")
+            val role   = back.arguments!!.getString("role") ?: ""
             SetupPinScreen(
                 userId          = userId,
                 onNavigateBack  = { navController.popBackStack() },
                 // PIN không truyền qua route — PinReveal đọc từ SetupPinViewModel
                 onNavigateToPinReveal = { uid ->
                     // Không pop SetupPin khỏi back stack — PinReveal cần ViewModel của nó
-                    navController.navigate(Screen.PinReveal.createRoute(uid))
+                    navController.navigate(Screen.PinReveal.createRoute(uid, role))
                 }
             )
         }
@@ -147,7 +149,10 @@ fun AppNavGraph() {
         // PIN KHÔNG truyền qua route để tránh lộ trong back stack
         composable(
             route = Screen.PinReveal.route,
-            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+            arguments = listOf(
+                navArgument("userId") { type = NavType.LongType },
+                navArgument("role")   { type = NavType.StringType }
+            )
         ) { back ->
             // Lấy ViewModel của SetupPin (vẫn còn trong back stack)
             val setupPinEntry = remember(back) {
@@ -156,11 +161,14 @@ fun AppNavGraph() {
             val setupPinVm: SetupPinViewModel? = setupPinEntry?.let { hiltViewModel(it) }
             val fallbackFlow = remember { MutableStateFlow(SetupPinUiState()) }
             val pinState by (setupPinVm?.state ?: fallbackFlow).collectAsState()
+            val role = back.arguments!!.getString("role") ?: ""
 
             PinRevealScreen(
                 pin = pinState.revealedPin,
                 onNavigateToDashboard = {
-                    navController.navigate(Screen.ManagerTabs.route) {
+                    val dest = if (role == Role.MANAGER.name) Screen.ManagerTabs.route
+                               else Screen.KtvTabs.route
+                    navController.navigate(dest) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
@@ -168,19 +176,10 @@ fun AppNavGraph() {
         }
 
         // ── KTV ───────────────────────────────────────────────
-        composable(Screen.KtvDashboard.route) {
-            KtvDashboardScreen(
-                onNavigateToScan     = { navController.navigate(Screen.ScanQr.route) },
-                onNavigateToDetail   = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) },
-                onNavigateToHistory  = { navController.navigate(Screen.KtvHistory.route) },
-                onNavigateToSettings = { navController.navigate(Screen.KtvSettings.route) }
-            )
-        }
-
-        composable(Screen.ScanQr.route) {
-            ScanScreen(
-                onNavigateBack     = { navController.popBackStack() },
-                onNavigateToDevice = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
+        composable(Screen.KtvTabs.route) {
+            KtvTabsHost(
+                onNavigateToDeviceDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) },
+                onLogout                 = { navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } } }
             )
         }
 
@@ -204,21 +203,6 @@ fun AppNavGraph() {
             WriteLogScreen(onNavigateBack = { navController.popBackStack() })
         }
 
-        composable(Screen.KtvHistory.route) {
-            KtvHistoryScreen(
-                onNavigateBack     = { navController.popBackStack() },
-                onNavigateToDevice = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
-            )
-        }
-
-        composable(Screen.KtvSettings.route) {
-            SettingsScreen(
-                isManager          = false,
-                onLogout           = { navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } } },
-                onNavigateToBackup = {},
-                onNavigateToAccounts = {}
-            )
-        }
 
         // ── Manager ───────────────────────────────────────────
         composable(Screen.ManagerTabs.route) {

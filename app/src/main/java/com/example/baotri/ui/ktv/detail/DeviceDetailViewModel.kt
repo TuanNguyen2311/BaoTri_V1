@@ -15,7 +15,8 @@ import javax.inject.Inject
 data class DeviceDetailUiState(
     val device: Device? = null,
     val logs: List<MaintenanceLog> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val isKtv: Boolean = false
 )
 
 data class LogDetailSheetState(
@@ -51,9 +52,15 @@ class DeviceDetailViewModel @Inject constructor(
     init { load() }
 
     private fun load() = viewModelScope.launch {
-        val device = getDeviceById(deviceId)
+        val session = getCurrentSession()
+        val device  = getDeviceById(deviceId)
         getDeviceLogs(deviceId).collect { logs ->
-            _state.value = DeviceDetailUiState(device = device, logs = logs, isLoading = false)
+            _state.value = DeviceDetailUiState(
+                device    = device,
+                logs      = logs,
+                isLoading = false,
+                isKtv     = session.role == Role.TECHNICIAN.name
+            )
         }
     }
 

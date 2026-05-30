@@ -8,12 +8,12 @@ sealed class Screen(val route: String) {
         fun createRoute(userId: Long, role: String) = "change_password/$userId/$role"
     }
 
-    object SetupPin : Screen("setup_pin/{userId}") {
-        fun createRoute(userId: Long) = "setup_pin/$userId"
+    object SetupPin : Screen("setup_pin/{userId}/{role}") {
+        fun createRoute(userId: Long, role: String) = "setup_pin/$userId/$role"
     }
 
-    object PinReveal : Screen("pin_reveal/{userId}") {
-        fun createRoute(userId: Long) = "pin_reveal/$userId"
+    object PinReveal : Screen("pin_reveal/{userId}/{role}") {
+        fun createRoute(userId: Long, role: String) = "pin_reveal/$userId/$role"
     }
 
     // ← Thêm username vào route — encode để tránh ký tự đặc biệt
@@ -25,6 +25,7 @@ sealed class Screen(val route: String) {
     }
 
     // ── KTV ───────────────────────────────────────────────────
+    object KtvTabs      : Screen("ktv_tabs")
     object KtvDashboard : Screen("ktv_dashboard")
     object ScanQr       : Screen("scan_qr")
 

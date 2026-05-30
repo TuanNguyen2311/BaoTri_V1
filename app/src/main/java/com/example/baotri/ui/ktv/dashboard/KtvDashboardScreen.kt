@@ -24,53 +24,55 @@ import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
 import com.example.baotri.util.DateUtil
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KtvDashboardScreen(
     onNavigateToScan: () -> Unit,
     onNavigateToDetail: (Long) -> Unit,
     onNavigateToHistory: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     vm: KtvDashboardViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
 
     Scaffold(
-        bottomBar = {
-            KtvBottomNav(
-                current = 0,
-                onHome = {},
-                onScan = onNavigateToScan,
-                onHistory = onNavigateToHistory,
-                onSettings = onNavigateToSettings
-            )
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("Xin chào,",
+                                style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Text(state.fullName,
+                                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    actions = {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 16.dp)
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(GreenLight)
+                                .border(1.dp, GreenPrimary.copy(.3f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Person, null,
+                                tint = GreenPrimary, modifier = Modifier.size(20.dp))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor         = MaterialTheme.colorScheme.background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+                HorizontalDivider(color = BorderColor, thickness = 0.5.dp)
+            }
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            // ── Header ──────────────────────────────────────
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Xin chào,", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        Text(state.fullName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
-                    Box(
-                        modifier = Modifier.size(38.dp).clip(CircleShape)
-                            .background(GreenLight).border(1.dp, GreenPrimary.copy(.3f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Person, null, tint = GreenPrimary, modifier = Modifier.size(20.dp))
-                    }
-                }
-                HorizontalDivider(color = BorderColor, thickness = 0.5.dp)
-            }
-
             // ── Stats ────────────────────────────────────────
             item {
                 Row(

@@ -3,6 +3,7 @@ package com.example.baotri.ui.manager.account
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.baotri.domain.model.User
+import com.example.baotri.domain.repository.UserRepository
 import com.example.baotri.domain.usecase.account.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -24,7 +25,8 @@ class AccountManagementViewModel @Inject constructor(
     private val getAllTechnicians: GetAllTechniciansUseCase,
     private val createTechnician: CreateTechnicianUseCase,
     private val resetPassword: ResetTechnicianPasswordUseCase,
-    private val toggleActive: ToggleTechnicianActiveUseCase
+    private val toggleActive: ToggleTechnicianActiveUseCase,
+    private val userRepo: UserRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AccountUiState())
@@ -48,8 +50,15 @@ class AccountManagementViewModel @Inject constructor(
 
     fun addTechnician() = viewModelScope.launch {
         val s = _state.value
+        val username = s.newUsername.trim()
+
+        if (userRepo.getUserByUsername(username) != null) {
+            _state.update { it.copy(error = "Tên đăng nhập \"$username\" đã tồn tại") }
+            return@launch
+        }
+
         _state.update { it.copy(isLoading = true, error = null) }
-        createTechnician(s.newUsername, s.newPassword, s.newFullName)
+        createTechnician(username, s.newPassword, s.newFullName)
             .onSuccess {
                 _state.update {
                     it.copy(isLoading = false, showAddDialog = false,

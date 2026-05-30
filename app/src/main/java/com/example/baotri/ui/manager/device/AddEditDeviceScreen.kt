@@ -2,6 +2,7 @@ package com.example.baotri.ui.manager.device
 
 import android.content.Context
 import android.net.Uri
+import java.io.File
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -99,6 +100,17 @@ class AddEditDeviceViewModel @Inject constructor(
     fun onBuyDateChange(v: String)  = _state.update { it.copy(buyDateText = v) }
     fun onWarrantyChange(v: String) = _state.update { it.copy(warrantyDateText = v) }
     fun onPhotoChange(uri: String)  = _state.update { it.copy(photoUri = uri) }
+
+    fun onPhotoSelected(uri: Uri) = viewModelScope.launch {
+        val dir  = File(context.filesDir, "device_photos").also { it.mkdirs() }
+        val dest = File(dir, "device_${System.currentTimeMillis()}.jpg")
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                dest.outputStream().use { output -> input.copyTo(output) }
+            }
+            _state.update { it.copy(photoUri = dest.absolutePath) }
+        }
+    }
     fun onNotesChange(v: String)    = _state.update { it.copy(notes = v) }
 
     fun save() = viewModelScope.launch {
@@ -139,7 +151,7 @@ fun AddEditDeviceScreen(
     val state by vm.state.collectAsState()
     val context = LocalContext.current
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: android.net.Uri? ->
-        uri?.let { vm.onPhotoChange(it.toString()) }
+        uri?.let { vm.onPhotoSelected(it) }
     }
 
     LaunchedEffect(state.saved) { if (state.saved) onNavigateBack() }
@@ -173,7 +185,9 @@ fun AddEditDeviceScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (state.photoUri != null) {
-                    AsyncImage(model = state.photoUri, contentDescription = null,
+                    val photoModel = if (state.photoUri?.startsWith("/") ?:false)
+                        File(state.photoUri) else state.photoUri
+                    AsyncImage(model = photoModel, contentDescription = null,
                         modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Default.Settings, null,
