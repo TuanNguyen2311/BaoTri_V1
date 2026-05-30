@@ -123,6 +123,14 @@ data class DeviceIncident(
     val count: Int
 )
 
+// ── Dashboard Alerts ─────────────────────────────────────────
+enum class AlertType { URGENT, WAITING, WARRANTY, STABLE }
+
+data class DeviceAlert(
+    val device: Device,
+    val alertType: AlertType
+)
+
 // ── Backup ──────────────────────────────────────────────────
 data class BackupHistory(
     val id: Long,

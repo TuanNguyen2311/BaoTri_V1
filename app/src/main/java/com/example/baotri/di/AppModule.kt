@@ -5,6 +5,7 @@ import com.example.baotri.data.db.AppDatabase
 import com.example.baotri.data.db.dao.*
 import com.example.baotri.data.repository.*
 import com.example.baotri.domain.repository.*
+import com.example.baotri.util.SessionManager
 import com.google.gson.Gson
 import dagger.Module
 import dagger.Provides
@@ -30,12 +31,16 @@ object AppModule {
     @Provides @Singleton fun provideGson(): Gson = Gson()
 
     @Provides @Singleton
+    fun provideSessionRepository(sessionManager: SessionManager): SessionRepository =
+        SessionRepositoryImpl(sessionManager)
+
+    @Provides @Singleton
     fun provideUserRepository(dao: UserDao): UserRepository =
         UserRepositoryImpl(dao)
 
     @Provides @Singleton
-    fun provideDeviceRepository(deviceDao: DeviceDao, logDao: MaintenanceLogDao): DeviceRepository =
-        DeviceRepositoryImpl(deviceDao, logDao)
+    fun provideDeviceRepository(deviceDao: DeviceDao): DeviceRepository =
+        DeviceRepositoryImpl(deviceDao)
 
     @Provides @Singleton
     fun provideLogRepository(
@@ -47,6 +52,11 @@ object AppModule {
         MaintenanceLogRepositoryImpl(logDao, deviceDao, historyDao, gson)
 
     @Provides @Singleton
-    fun provideBackupRepository(db: AppDatabase, historyDao: BackupHistoryDao, gson: Gson): BackupRepository =
-        BackupRepositoryImpl(db, historyDao, gson)
+    fun provideBackupRepository(
+        db: AppDatabase,
+        historyDao: BackupHistoryDao,
+        gson: Gson,
+        @ApplicationContext ctx: Context
+    ): BackupRepository =
+        BackupRepositoryImpl(db, historyDao, gson, ctx)
 }

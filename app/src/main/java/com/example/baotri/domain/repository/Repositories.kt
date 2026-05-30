@@ -6,6 +6,18 @@ import kotlinx.coroutines.flow.Flow
 
 const val DEFAULT_TECHNICIAN_PASSWORD = "1234"
 
+interface SessionRepository {
+    val isLoggedIn: Flow<Boolean>
+    val currentUserId: Flow<Long>
+    val currentRole: Flow<String>
+    val currentFullName: Flow<String>
+    val rememberedUsername: Flow<String>
+    suspend fun saveSession(userId: Long, username: String, fullName: String, role: String)
+    suspend fun saveRememberedUsername(username: String)
+    suspend fun clearRememberedUsername()
+    suspend fun clearSession()
+}
+
 interface UserRepository {
     suspend fun login(username: String, password: String): User?
     suspend fun getUserById(id: Long): User?
@@ -71,4 +83,5 @@ interface BackupRepository {
     fun getBackupHistory(): Flow<List<BackupHistory>>
     suspend fun getLatestBackup(): BackupHistory?
     suspend fun recordBackup(action: String, fileName: String, sizeBytes: Long, destination: String)
+    suspend fun prepareForSharing(data: ByteArray, fileName: String): String
 }

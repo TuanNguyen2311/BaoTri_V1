@@ -1,33 +1,25 @@
 package com.example.baotri.data.repository
 
 import com.example.baotri.data.db.dao.DeviceDao
-import com.example.baotri.data.db.dao.MaintenanceLogDao
 import com.example.baotri.data.model.LogStatus
 import com.example.baotri.domain.model.Device
 import com.example.baotri.domain.model.DeviceStats
-import com.example.baotri.domain.model.MaintenanceStatus
 import com.example.baotri.domain.repository.DeviceRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class DeviceRepositoryImpl @Inject constructor(
-    private val deviceDao: DeviceDao,
-    private val logDao: MaintenanceLogDao
+    private val deviceDao: DeviceDao
 ) : DeviceRepository {
 
     override fun getAllDevices(): Flow<List<Device>> =
-        deviceDao.getAll().map { list ->
-            list.map { entity ->
-                val latest = logDao.getLatestForDevice(entity.id)
-                val status = latest?.status?.let {
-                    when (it) {
-                        LogStatus.RESOLVED      -> MaintenanceStatus.RESOLVED
-                        LogStatus.WAITING_PARTS -> MaintenanceStatus.WAITING_PARTS
-                        LogStatus.UNRESOLVED    -> MaintenanceStatus.UNRESOLVED
-                    }
-                }
-                entity.toDomain(latestStatus = status)
+        deviceDao.getAllWithLatestStatus().map { list ->
+            list.map { row ->
+                val status = row.latestStatus
+                    ?.let { runCatching { LogStatus.valueOf(it) }.getOrNull() }
+                    ?.toDomain()
+                row.device.toDomain(latestStatus = status)
             }
         }
 

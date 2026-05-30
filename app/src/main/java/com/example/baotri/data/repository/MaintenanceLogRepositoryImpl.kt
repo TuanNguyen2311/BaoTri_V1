@@ -3,7 +3,6 @@ package com.example.baotri.data.repository
 import com.example.baotri.data.db.dao.DeviceDao
 import com.example.baotri.data.db.dao.MaintenanceLogDao
 import com.example.baotri.data.db.dao.LogStatusHistoryDao
-import com.example.baotri.data.model.LogStatus
 import com.example.baotri.data.model.LogStatusHistoryEntity
 import com.example.baotri.domain.model.*
 import com.example.baotri.domain.repository.MaintenanceLogRepository
@@ -59,11 +58,7 @@ class MaintenanceLogRepositoryImpl @Inject constructor(
         historyDao.insert(
             LogStatusHistoryEntity(
                 logId           = logId,
-                status          = when (log.status) {
-                    MaintenanceStatus.RESOLVED      -> LogStatus.RESOLVED
-                    MaintenanceStatus.WAITING_PARTS -> LogStatus.WAITING_PARTS
-                    MaintenanceStatus.UNRESOLVED    -> LogStatus.UNRESOLVED
-                },
+                status          = log.status.toLogStatus(),
                 changedByUserId = log.userId,
                 changedByName   = log.performedByName,
                 note            = "",
@@ -95,11 +90,7 @@ class MaintenanceLogRepositoryImpl @Inject constructor(
         historyDao.insert(
             LogStatusHistoryEntity(
                 logId           = logId,
-                status          = when (newStatus) {
-                    MaintenanceStatus.RESOLVED      -> LogStatus.RESOLVED
-                    MaintenanceStatus.WAITING_PARTS -> LogStatus.WAITING_PARTS
-                    MaintenanceStatus.UNRESOLVED    -> LogStatus.UNRESOLVED
-                },
+                status          = newStatus.toLogStatus(),
                 changedByUserId = changedByUserId,
                 changedByName   = changedByName,
                 note            = note,
@@ -108,11 +99,7 @@ class MaintenanceLogRepositoryImpl @Inject constructor(
             )
         )
         // 2. Sync currentStatus trên log chính
-        logDao.updateStatus(logId, when (newStatus) {
-            MaintenanceStatus.RESOLVED      -> LogStatus.RESOLVED
-            MaintenanceStatus.WAITING_PARTS -> LogStatus.WAITING_PARTS
-            MaintenanceStatus.UNRESOLVED    -> LogStatus.UNRESOLVED
-        })
+        logDao.updateStatus(logId, newStatus.toLogStatus())
     }
 
     override suspend fun getKtvStats(userId: Long): KtvStats {

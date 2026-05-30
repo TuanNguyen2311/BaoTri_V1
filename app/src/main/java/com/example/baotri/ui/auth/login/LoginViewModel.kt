@@ -3,8 +3,8 @@ package com.example.baotri.ui.auth.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.baotri.domain.model.Role
+import com.example.baotri.domain.repository.SessionRepository
 import com.example.baotri.domain.usecase.auth.LoginUseCase
-import com.example.baotri.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -38,7 +38,7 @@ sealed class LoginNavEvent {
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
-    private val session: SessionManager
+    private val session: SessionRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LoginUiState())

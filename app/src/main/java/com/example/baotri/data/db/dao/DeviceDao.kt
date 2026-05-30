@@ -4,11 +4,26 @@ import androidx.room.*
 import com.example.baotri.data.model.DeviceEntity
 import kotlinx.coroutines.flow.Flow
 
+data class DeviceWithLatestStatus(
+    @Embedded val device: DeviceEntity,
+    val latestStatus: String?
+)
+
 @Dao
 interface DeviceDao {
 
     @Query("SELECT * FROM devices ORDER BY name ASC")
     fun getAll(): Flow<List<DeviceEntity>>
+
+    @Query("""
+        SELECT d.*,
+            (SELECT l.status FROM maintenance_logs l
+             WHERE l.deviceId = d.id AND l.isDraft = 0
+             ORDER BY l.performedAt DESC LIMIT 1) AS latestStatus
+        FROM devices d
+        ORDER BY d.name ASC
+    """)
+    fun getAllWithLatestStatus(): Flow<List<DeviceWithLatestStatus>>
 
     @Query("SELECT * FROM devices WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): DeviceEntity?

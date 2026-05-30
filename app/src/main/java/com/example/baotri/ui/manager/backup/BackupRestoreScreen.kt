@@ -1,5 +1,6 @@
 package com.example.baotri.ui.manager.backup
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,8 +28,9 @@ import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
 import com.example.baotri.util.DateUtil
 import com.example.baotri.util.toReadableSize
-
-// ── Screen ─────────────────────────────────────────────────────
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun BackupRestoreScreen(
@@ -35,9 +38,77 @@ fun BackupRestoreScreen(
     vm: BackupViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // Holds export data temporarily between event and CreateDocument result callback
+    var pendingExportData by remember { mutableStateOf<ByteArray?>(null) }
+    var pendingExportFileName by remember { mutableStateOf("") }
+
+    // Export — user picks save location via system document picker
+    val saveDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        val data = pendingExportData ?: return@rememberLauncherForActivityResult
+        pendingExportData = null
+        if (uri == null) return@rememberLauncherForActivityResult   // user cancelled
+
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { stream -> stream.write(data) }
+                vm.onExportSaved(pendingExportFileName, data.size.toLong())
+            } catch (e: Exception) {
+                vm.onExportError("Lưu thất bại: ${e.message}")
+            }
+        }
+    }
+
+    // Import — OpenDocument supports ALL file types (including .btdb from Drive/Downloads)
+    // Runs on Dispatchers.IO to avoid blocking main thread while Drive downloads the file
     val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: android.net.Uri? -> uri?.let { vm.import(it) } }
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val data = context.contentResolver.openInputStream(it)?.readBytes()
+                    val fileName = it.lastPathSegment ?: "imported.btdb"
+                    if (data != null) vm.import(data, fileName)
+                    else vm.showImportError("Không đọc được file")
+                } catch (e: Exception) {
+                    vm.showImportError("Không đọc được file: ${e.message}")
+                }
+            }
+        }
+    }
+
+    // Observe file events — both export-save and share flows
+    LaunchedEffect(Unit) {
+        vm.fileEvent.collect { event ->
+            when (event) {
+                is BackupFileEvent.RequestSaveLocation -> {
+                    pendingExportData = event.data
+                    pendingExportFileName = event.suggestedFileName
+                    saveDocumentLauncher.launch(event.suggestedFileName)
+                }
+                is BackupFileEvent.RequestShare -> {
+                    val file = File(event.filePath)
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context, "${context.packageName}.provider", file
+                    )
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/octet-stream"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(
+                        Intent.createChooser(shareIntent, "Chia sẻ file backup")
+                            .also { it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    )
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -52,7 +123,6 @@ fun BackupRestoreScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Info banner
             item {
                 InfoBox(
                     message = "Dữ liệu được mã hóa AES-256. File backup định dạng .btdb không thể đọc hoặc chỉnh sửa bên ngoài ứng dụng.",
@@ -61,7 +131,6 @@ fun BackupRestoreScreen(
                 )
             }
 
-            // Success/Error messages
             if (state.successMessage != null) {
                 item {
                     InfoBox(message = state.successMessage!!, icon = Icons.Default.CheckCircle, type = InfoBoxType.SUCCESS)
@@ -85,7 +154,6 @@ fun BackupRestoreScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column {
-                        // Card header
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -103,7 +171,6 @@ fun BackupRestoreScreen(
                         }
                         HorizontalDivider(color = BorderColor, thickness = 0.5.dp)
                         Column(modifier = Modifier.padding(12.dp)) {
-                            // Last backup info
                             if (state.latestBackup != null) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth()
@@ -125,13 +192,12 @@ fun BackupRestoreScreen(
                                 }
                                 Spacer(Modifier.height(10.dp))
                             }
-                            // Destination selector
                             Text("Lưu vào", style = MaterialTheme.typography.labelMedium,
                                 color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 DestinationChip(
-                                    label = "Bộ nhớ máy",
-                                    icon = Icons.Default.PhoneAndroid,
+                                    label = "Chọn vị trí lưu",
+                                    icon = Icons.Default.FolderOpen,
                                     selected = state.shareLocal,
                                     onClick = { vm.onDestinationChange(true) },
                                     modifier = Modifier.weight(1f)
@@ -179,7 +245,7 @@ fun BackupRestoreScreen(
                             ) { Icon(Icons.Default.CloudDownload, null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(22.dp)) }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Khôi phục từ file backup", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                Text("Chọn file .btdb đã xuất trước đó để khôi phục toàn bộ dữ liệu",
+                                Text("Chọn file .btdb từ bộ nhớ máy hoặc Google Drive để khôi phục dữ liệu",
                                     fontSize = 12.sp, color = TextSecondary, lineHeight = 17.sp)
                             }
                         }
@@ -194,7 +260,8 @@ fun BackupRestoreScreen(
                             LoadingButton(
                                 text = "Chọn file .btdb để khôi phục",
                                 loading = state.isImporting,
-                                onClick = { importLauncher.launch("application/octet-stream") },
+                                // arrayOf("*/*") để hiện toàn bộ file, kể cả .btdb từ Drive
+                                onClick = { importLauncher.launch(arrayOf("*/*")) },
                                 modifier = Modifier.fillMaxWidth(),
                                 containerColor = Color(0xFF1D4ED8)
                             )

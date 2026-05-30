@@ -1,5 +1,6 @@
 package com.example.baotri.data.repository
 
+import android.content.Context
 import com.example.baotri.data.db.AppDatabase
 import com.example.baotri.data.db.dao.BackupHistoryDao
 import com.example.baotri.data.model.*
@@ -8,17 +9,23 @@ import com.example.baotri.domain.repository.BackupRepository
 import com.example.baotri.util.SecurityUtil
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import javax.inject.Inject
 
 class BackupRepositoryImpl @Inject constructor(
     private val db: AppDatabase,
     private val historyDao: BackupHistoryDao,
-    private val gson: Gson
+    private val gson: Gson,
+    @ApplicationContext private val context: Context
 ) : BackupRepository {
 
-    override suspend fun exportBackup(): ByteArray {
+    override suspend fun exportBackup(): ByteArray = withContext(Dispatchers.IO) {
         val users   = db.userDao().getAllForBackup()
         val devices = db.deviceDao().getAllForBackup()
         val logs    = db.maintenanceLogDao().getAll()
@@ -36,10 +43,11 @@ class BackupRepositoryImpl @Inject constructor(
         val jsonBytes = gson.toJson(payload).toByteArray(Charsets.UTF_8)
         val checksum  = SecurityUtil.checksum(jsonBytes)
         val withChecksum = "$checksum|${String(jsonBytes, Charsets.UTF_8)}".toByteArray(Charsets.UTF_8)
-        return SecurityUtil.encrypt(withChecksum)
+        SecurityUtil.encrypt(withChecksum)
     }
 
-    override suspend fun importBackup(data: ByteArray) {
+    override suspend fun importBackup(data: ByteArray) = withContext(Dispatchers.IO) {
+        // decrypt + verify đều CPU-intensive, clearAllTables() là blocking call
         val decrypted = SecurityUtil.decrypt(data)
         val raw = String(decrypted, Charsets.UTF_8)
 
@@ -52,7 +60,7 @@ class BackupRepositoryImpl @Inject constructor(
         val actualChecksum = SecurityUtil.checksum(json.toByteArray(Charsets.UTF_8))
         require(storedChecksum == actualChecksum) { "Backup file has been tampered with" }
 
-        db.clearAllTables()
+        db.clearAllTables()   // synchronous — phải chạy trên IO thread
         restoreFromJson(json)
     }
 
@@ -80,6 +88,12 @@ class BackupRepositoryImpl @Inject constructor(
         devices?.forEach { db.deviceDao().insert(it) }
         logs?.forEach    { db.maintenanceLogDao().insert(it) }
         history?.forEach { db.logStatusHistoryDao().insert(it) }
+    }
+
+    override suspend fun prepareForSharing(data: ByteArray, fileName: String): String {
+        val file = File(context.cacheDir, fileName)
+        FileOutputStream(file).use { it.write(data) }
+        return file.absolutePath
     }
 
     override fun getBackupHistory(): Flow<List<BackupHistory>> =

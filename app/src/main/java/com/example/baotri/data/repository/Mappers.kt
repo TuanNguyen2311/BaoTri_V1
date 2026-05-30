@@ -7,6 +7,31 @@ import com.google.gson.reflect.TypeToken
 
 private val gson = Gson()
 
+// ── Enum conversions ─────────────────────────────────────────
+fun MaintenanceStatus.toLogStatus() = when (this) {
+    MaintenanceStatus.RESOLVED      -> LogStatus.RESOLVED
+    MaintenanceStatus.WAITING_PARTS -> LogStatus.WAITING_PARTS
+    MaintenanceStatus.UNRESOLVED    -> LogStatus.UNRESOLVED
+}
+
+fun LogStatus.toDomain() = when (this) {
+    LogStatus.RESOLVED      -> MaintenanceStatus.RESOLVED
+    LogStatus.WAITING_PARTS -> MaintenanceStatus.WAITING_PARTS
+    LogStatus.UNRESOLVED    -> MaintenanceStatus.UNRESOLVED
+}
+
+fun MaintenanceType.toLogType() = when (this) {
+    MaintenanceType.PERIODIC   -> LogType.PERIODIC
+    MaintenanceType.EMERGENCY  -> LogType.EMERGENCY
+    MaintenanceType.INSPECTION -> LogType.INSPECTION
+}
+
+fun LogType.toDomain() = when (this) {
+    LogType.PERIODIC   -> MaintenanceType.PERIODIC
+    LogType.EMERGENCY  -> MaintenanceType.EMERGENCY
+    LogType.INSPECTION -> MaintenanceType.INSPECTION
+}
+
 // ── User ────────────────────────────────────────────────────
 fun UserEntity.toDomain() = User(
     id           = id,
@@ -51,11 +76,7 @@ fun Device.toEntity() = DeviceEntity(
 fun LogStatusHistoryEntity.toDomain() = LogStatusHistory(
     id              = id,
     logId           = logId,
-    status          = when(status) {
-        LogStatus.RESOLVED      -> MaintenanceStatus.RESOLVED
-        LogStatus.WAITING_PARTS -> MaintenanceStatus.WAITING_PARTS
-        LogStatus.UNRESOLVED    -> MaintenanceStatus.UNRESOLVED
-    },
+    status          = status.toDomain(),
     changedByUserId = changedByUserId,
     changedByName   = changedByName,
     note            = note,
@@ -67,11 +88,7 @@ fun LogStatusHistoryEntity.toDomain() = LogStatusHistory(
 fun LogStatusHistory.toEntity() = LogStatusHistoryEntity(
     id              = id,
     logId           = logId,
-    status          = when(status) {
-        MaintenanceStatus.RESOLVED      -> LogStatus.RESOLVED
-        MaintenanceStatus.WAITING_PARTS -> LogStatus.WAITING_PARTS
-        MaintenanceStatus.UNRESOLVED    -> LogStatus.UNRESOLVED
-    },
+    status          = status.toLogStatus(),
     changedByUserId = changedByUserId,
     changedByName   = changedByName,
     note            = note,
@@ -91,18 +108,10 @@ fun MaintenanceLogEntity.toDomain(
     deviceCode      = deviceCode,
     userId          = userId,
     performedByName = performedByName,
-    logType         = when(logType) {
-        LogType.PERIODIC    -> MaintenanceType.PERIODIC
-        LogType.EMERGENCY   -> MaintenanceType.EMERGENCY
-        LogType.INSPECTION  -> MaintenanceType.INSPECTION
-    },
+    logType         = logType.toDomain(),
     description     = description,
     solution        = solution,
-    status          = when(status) {
-        LogStatus.RESOLVED      -> MaintenanceStatus.RESOLVED
-        LogStatus.WAITING_PARTS -> MaintenanceStatus.WAITING_PARTS
-        LogStatus.UNRESOLVED    -> MaintenanceStatus.UNRESOLVED
-    },
+    status          = status.toDomain(),
     photoPaths      = if (photoPaths.isBlank()) emptyList()
                       else gson.fromJson(photoPaths, object : TypeToken<List<String>>() {}.type),
     notes           = notes,
@@ -117,18 +126,10 @@ fun MaintenanceLog.toEntity() = MaintenanceLogEntity(
     deviceId        = deviceId,
     userId          = userId,
     performedByName = performedByName,
-    logType         = when(logType) {
-        MaintenanceType.PERIODIC    -> LogType.PERIODIC
-        MaintenanceType.EMERGENCY   -> LogType.EMERGENCY
-        MaintenanceType.INSPECTION  -> LogType.INSPECTION
-    },
+    logType         = logType.toLogType(),
     description     = description,
     solution        = solution,
-    status          = when(status) {
-        MaintenanceStatus.RESOLVED      -> LogStatus.RESOLVED
-        MaintenanceStatus.WAITING_PARTS -> LogStatus.WAITING_PARTS
-        MaintenanceStatus.UNRESOLVED    -> LogStatus.UNRESOLVED
-    },
+    status          = status.toLogStatus(),
     photoPaths      = gson.toJson(photoPaths),
     notes           = notes,
     isDraft         = isDraft,

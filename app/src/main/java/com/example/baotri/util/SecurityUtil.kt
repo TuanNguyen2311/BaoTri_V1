@@ -19,7 +19,10 @@ object SecurityUtil {
     }
 
     // ── AES-256 encryption for backup ───────────────────────
-    // Fixed key derived from app signature — embedded in app
+    // TODO: Key hiện tại hard-coded — dễ bị lộ khi decompile APK.
+    //       Trước khi release production, chuyển sang Android Keystore:
+    //       KeyGenerator.getInstance("AES", "AndroidKeyStore")
+    //       Lưu ý: thay key sẽ làm các file backup cũ không đọc được.
     private val AES_KEY = "BaoTriThietBi2026SecretKey32Byte".toByteArray(Charsets.UTF_8)
     private val AES_IV  = "BaoTri16ByteIV!!".toByteArray(Charsets.UTF_8)
     private const val CIPHER_ALGO = "AES/CBC/PKCS5Padding"
