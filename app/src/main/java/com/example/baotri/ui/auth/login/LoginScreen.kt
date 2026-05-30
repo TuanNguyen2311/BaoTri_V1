@@ -3,6 +3,7 @@ package com.example.baotri.ui.auth.login
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,9 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.tooling.preview.Preview
@@ -28,13 +31,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.baotri.R
-import com.example.baotri.domain.model.Role
+import com.example.baotri.domain.model.Role as AppRole
+import com.example.baotri.ui.shared.components.InfoBox
+import com.example.baotri.ui.shared.components.InfoBoxType
 import com.example.baotri.ui.shared.components.LoadingButton
 import com.example.baotri.ui.shared.theme.*
 
 @Composable
 fun LoginScreen(
-    onNavigateToChangePassword: (Long, Role) -> Unit,
+    onNavigateToChangePassword: (Long, AppRole) -> Unit,
     onNavigateToKtvDashboard: () -> Unit,
     onNavigateToManagerDashboard: () -> Unit,
     onNavigateToForgotPassword: (username: String) -> Unit,
@@ -42,8 +47,8 @@ fun LoginScreen(
 ) {
     val state by vm.state.collectAsState()
     val focusManager = LocalFocusManager.current
-    val snackbarHostState = remember { SnackbarHostState() }
 
+    // Điều hướng sau khi login thành công
     LaunchedEffect(Unit) {
         vm.navEvents.collect { event ->
             when (event) {
@@ -54,39 +59,24 @@ fun LoginScreen(
         }
     }
 
+    // Khi error xuất hiện: đóng keyboard → imePadding thu lại → form full-screen → error hiện rõ
     LaunchedEffect(state.generalError) {
-        state.generalError?.let { error ->
-            snackbarHostState.showSnackbar(
-                message          = error,
-                duration         = SnackbarDuration.Short,
-                withDismissAction = true
-            )
-            vm.clearGeneralError()
+        if (state.generalError != null) {
+            focusManager.clearFocus()
         }
     }
 
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData   = data,
-                    containerColor = AmberColor,
-                    contentColor   = androidx.compose.ui.graphics.Color.White,
-                    shape          = RoundedCornerShape(10.dp)
-                )
-            }
-        }
-    ) { scaffoldPadding ->
+    Scaffold { scaffoldPadding ->
         LoginContent(
-            scaffoldPadding        = scaffoldPadding,
-            state                  = state,
-            onTapOutside           = { focusManager.clearFocus() },
-            onUserChange           = vm::onUsernameChange,
-            onPasswordChange       = vm::onPasswordChange,
-            onTogglePassword       = vm::onTogglePassword,
-            onNext                 = { focusManager.moveFocus(FocusDirection.Down) },
-            onDone                 = { vm.login() },
-            onRememberMeChange     = vm::onRememberMeChange,
+            scaffoldPadding            = scaffoldPadding,
+            state                      = state,
+            onTapOutside               = { focusManager.clearFocus() },
+            onUserChange               = vm::onUsernameChange,
+            onPasswordChange           = vm::onPasswordChange,
+            onTogglePassword           = vm::onTogglePassword,
+            onNext                     = { focusManager.moveFocus(FocusDirection.Down) },
+            onDone                     = { vm.login() },
+            onRememberMeChange         = vm::onRememberMeChange,
             onNavigateToForgotPassword = { onNavigateToForgotPassword(state.username.trim()) }
         )
     }
@@ -113,9 +103,7 @@ private fun LoginContent(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { onTapOutside() })
-                }
+                .pointerInput(Unit) { detectTapGestures(onTap = { onTapOutside() }) }
         ) {
             Column(
                 modifier = Modifier
@@ -133,13 +121,12 @@ private fun LoginContent(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(GreenLight)
-                        .border(1.dp, GreenPrimary.copy(.3f), RoundedCornerShape(20.dp)),
+                        .background(GreenPrimary),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Build, contentDescription = null,
-                        tint = GreenPrimary, modifier = Modifier.size(36.dp)
+                        tint = Color.White, modifier = Modifier.size(38.dp)
                     )
                 }
 
@@ -191,19 +178,23 @@ private fun LoginContent(
                         keyboardType = KeyboardType.Password,
                         imeAction    = ImeAction.Done
                     ),
-                    keyboardActions = KeyboardActions(onDone = { onDone() })
+                    keyboardActions  = KeyboardActions(onDone = { onDone() })
                 )
 
                 Spacer(Modifier.height(10.dp))
 
-                // ── Remember me ───────────────────────────────
+                // ── Remember Me ───────────────────────────────
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(role = Role.Checkbox) { onRememberMeChange(!state.rememberMe) }
+                        .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
                         checked         = state.rememberMe,
-                        onCheckedChange = onRememberMeChange,
+                        onCheckedChange = null,
                         colors          = CheckboxDefaults.colors(checkedColor = GreenPrimary)
                     )
                     Spacer(Modifier.width(4.dp))
@@ -212,6 +203,24 @@ private fun LoginContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
+                }
+
+                // ── Inline error — xuất hiện khi login thất bại ───────
+                // Keyboard đã được đóng bởi LaunchedEffect ở LoginScreen,
+                // nên imePadding thu lại và error này luôn nhìn thấy được
+                AnimatedVisibility(
+                    visible = state.generalError != null,
+                    enter   = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                    exit    = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+                ) {
+                    Column {
+                        Spacer(Modifier.height(12.dp))
+                        InfoBox(
+                            message = state.generalError ?: "",
+                            icon    = Icons.Default.ErrorOutline,
+                            type    = InfoBoxType.ERROR
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -225,20 +234,23 @@ private fun LoginContent(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
 
                 // ── Forgot password ───────────────────────────
-                // Chỉ enabled khi đã nhập username
-                TextButton(
-                    onClick  = onNavigateToForgotPassword,
-                    enabled  = state.username.isNotBlank()
-                ) {
+                TextButton(onClick = onNavigateToForgotPassword) {
                     Text(
                         stringResource(R.string.login_forgot_password),
-                        // Màu mờ khi disabled để người dùng biết cần nhập username trước
-                        color    = if (state.username.isNotBlank()) GreenPrimary
-                        else TextTertiary,
+                        color    = GreenPrimary,
                         fontSize = 13.sp
+                    )
+                }
+
+                AnimatedVisibility(visible = state.username.isBlank()) {
+                    Text(
+                        "Nhập tên đăng nhập để tự động điền vào bước tiếp theo",
+                        style    = MaterialTheme.typography.labelSmall,
+                        color    = TextTertiary,
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     )
                 }
 
@@ -285,15 +297,11 @@ private fun LoginTextField(
             onValueChange  = onValueChange,
             modifier       = Modifier.fillMaxWidth(),
             placeholder    = { Text(placeholder, color = TextTertiary) },
-            leadingIcon    = {
-                Icon(leadingIcon, null,
-                    tint = if (isError) RedColor else TextTertiary)
-            },
+            leadingIcon    = { Icon(leadingIcon, null, tint = if (isError) RedColor else TextTertiary) },
             trailingIcon   = if (isPassword) ({
                 IconButton(onClick = { onTogglePassword?.invoke() }) {
                     Icon(
-                        if (showPassword) Icons.Default.VisibilityOff
-                        else Icons.Default.Visibility,
+                        if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         null, tint = TextTertiary
                     )
                 }
@@ -302,9 +310,7 @@ private fun LoginTextField(
                 PasswordVisualTransformation() else VisualTransformation.None,
             singleLine     = true,
             isError        = isError,
-            supportingText = if (isError) ({
-                Text(error!!, color = RedColor, fontSize = 12.sp)
-            }) else null,
+            supportingText = if (isError) ({ Text(error!!, color = RedColor, fontSize = 12.sp) }) else null,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             shape          = RoundedCornerShape(12.dp),
@@ -318,63 +324,34 @@ private fun LoginTextField(
     }
 }
 
-// ── Preview ───────────────────────────────────────────────────
-@Preview(showBackground = true, showSystemUi = true, name = "Login - username filled")
+// ── Previews ──────────────────────────────────────────────────
+@Preview(showBackground = true, showSystemUi = true, name = "Login — no error")
 @Composable
 fun LoginScreenPreview() {
-    val snackbarHostState = remember { SnackbarHostState() }
-    val state = LoginUiState(
-        username     = "admin",
-        password     = "1234",
-        showPassword = true,
-        rememberMe   = true,
-        isLoading    = false
-    )
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData   = data,
-                    containerColor = AmberColor,
-                    contentColor   = androidx.compose.ui.graphics.Color.White,
-                    shape          = RoundedCornerShape(10.dp)
-                )
-            }
-        }
-    ) { scaffoldPadding ->
+    Scaffold { p ->
         LoginContent(
-            scaffoldPadding            = scaffoldPadding,
-            state                      = state,
-            onTapOutside               = {},
-            onUserChange               = {},
-            onPasswordChange           = {},
-            onTogglePassword           = {},
-            onNext                     = {},
-            onDone                     = {},
-            onRememberMeChange         = {},
+            scaffoldPadding = p,
+            state = LoginUiState(username = "admin", password = "Admin123", rememberMe = true),
+            onTapOutside = {}, onUserChange = {}, onPasswordChange = {},
+            onTogglePassword = {}, onNext = {}, onDone = {}, onRememberMeChange = {},
             onNavigateToForgotPassword = {}
         )
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Login - username empty (forgot disabled)")
+@Preview(showBackground = true, showSystemUi = true, name = "Login — with inline error")
 @Composable
-fun LoginScreenEmptyPreview() {
-    val snackbarHostState = remember { SnackbarHostState() }
-    val state = LoginUiState() // username = "" → nút quên mật khẩu bị mờ
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { scaffoldPadding ->
+fun LoginScreenErrorPreview() {
+    Scaffold { p ->
         LoginContent(
-            scaffoldPadding            = scaffoldPadding,
-            state                      = state,
-            onTapOutside               = {},
-            onUserChange               = {},
-            onPasswordChange           = {},
-            onTogglePassword           = {},
-            onNext                     = {},
-            onDone                     = {},
-            onRememberMeChange         = {},
+            scaffoldPadding = p,
+            state = LoginUiState(
+                username     = "admin",
+                password     = "wrong",
+                generalError = "Tên đăng nhập hoặc mật khẩu không đúng"
+            ),
+            onTapOutside = {}, onUserChange = {}, onPasswordChange = {},
+            onTogglePassword = {}, onNext = {}, onDone = {}, onRememberMeChange = {},
             onNavigateToForgotPassword = {}
         )
     }

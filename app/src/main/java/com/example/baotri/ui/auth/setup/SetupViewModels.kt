@@ -18,7 +18,9 @@ data class ChangePasswordUiState(
     val confirmPassword: String = "",
     val passwordStrength: Int = 0,
     val isLoading: Boolean = false,
-    val error: String? = null,
+    // Field-level errors (không dùng error chung nữa)
+    val newPasswordError: String? = null,
+    val confirmPasswordError: String? = null,
     val navigateToSetupPin: Boolean = false
 )
 
@@ -27,15 +29,11 @@ data class SetupPinUiState(
     val pin: String = "",
     val confirmPin: String = "",
     val enteredPin: String = "",
+    val revealedPin: String = "",   // lưu PIN để PinReveal đọc từ ViewModel, không qua route
     val step: PinStep = PinStep.ENTER,
     val isLoading: Boolean = false,
     val error: String? = null,
     val navigateToPinReveal: Boolean = false
-)
-
-data class PinRevealUiState(
-    val pin: String = "",
-    val navigateToDashboard: Boolean = false
 )
 
 enum class PinStep { ENTER, CONFIRM }
@@ -50,9 +48,12 @@ class ChangePasswordViewModel @Inject constructor(
     val state: StateFlow<ChangePasswordUiState> = _state.asStateFlow()
 
     fun onNewPasswordChange(v: String) = _state.update {
-        it.copy(newPassword = v, error = null, passwordStrength = computeStrength(v))
+        it.copy(newPassword = v, newPasswordError = null, passwordStrength = computeStrength(v))
     }
-    fun onConfirmPasswordChange(v: String) = _state.update { it.copy(confirmPassword = v, error = null) }
+
+    fun onConfirmPasswordChange(v: String) = _state.update {
+        it.copy(confirmPassword = v, confirmPasswordError = null)
+    }
 
     private fun computeStrength(pw: String): Int {
         var score = 0
@@ -65,10 +66,17 @@ class ChangePasswordViewModel @Inject constructor(
 
     fun confirm(userId: Long) = viewModelScope.launch {
         val s = _state.value
-        _state.update { it.copy(isLoading = true, error = null) }
+        _state.update { it.copy(isLoading = true, newPasswordError = null, confirmPasswordError = null) }
         changePasswordUseCase(userId, s.newPassword, s.confirmPassword)
             .onSuccess { _state.update { it.copy(isLoading = false, navigateToSetupPin = true) } }
-            .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
+            .onFailure { e ->
+                val msg = e.message ?: ""
+                if (msg.contains("xác nhận")) {
+                    _state.update { it.copy(isLoading = false, confirmPasswordError = msg) }
+                } else {
+                    _state.update { it.copy(isLoading = false, newPasswordError = msg) }
+                }
+            }
     }
 
     fun clearNav() = _state.update { it.copy(navigateToSetupPin = false) }
@@ -115,12 +123,18 @@ class SetupPinViewModel @Inject constructor(
         val enteredPin = _state.value.enteredPin
         _state.update { it.copy(isLoading = true) }
         setupPinUseCase(userId, enteredPin, confirm)
-            .onSuccess { _state.update { it.copy(isLoading = false, navigateToPinReveal = true) } }
+            .onSuccess {
+                _state.update {
+                    it.copy(isLoading = false, revealedPin = enteredPin, navigateToPinReveal = true)
+                }
+            }
             .onFailure { e ->
-                _state.update { it.copy(
-                    isLoading = false, error = e.message,
-                    step = PinStep.ENTER, pin = "", confirmPin = "", enteredPin = ""
-                )}
+                _state.update {
+                    it.copy(
+                        isLoading = false, error = e.message,
+                        step = PinStep.ENTER, pin = "", confirmPin = "", enteredPin = ""
+                    )
+                }
             }
     }
 

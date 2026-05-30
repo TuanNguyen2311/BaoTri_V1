@@ -1,5 +1,7 @@
 package com.example.baotri.ui
 
+import androidx.compose.runtime.*
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
@@ -18,9 +20,7 @@ import com.example.baotri.ui.manager.device.AddEditDeviceScreen
 import com.example.baotri.ui.manager.device.DeviceListScreen
 import com.example.baotri.ui.manager.report.ReportScreen
 import com.example.baotri.ui.manager.settings.SettingsScreen
-import androidx.compose.runtime.Composable
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.net.URLDecoder
 
 @Composable
@@ -47,28 +47,19 @@ fun AppNavGraph() {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                // ← Nhận username từ LoginScreen, encode vào route
                 onNavigateToForgotPassword = { username ->
                     navController.navigate(Screen.ForgotPassword.createRoute(username))
                 }
             )
         }
 
-        // ── ForgotPassword — nhận username qua navArgument ────
+        // ── ForgotPassword ────────────────────────────────────
         composable(
             route = Screen.ForgotPassword.route,
             arguments = listOf(
-                navArgument("username") {
-                    type         = NavType.StringType
-                    defaultValue = ""
-                }
+                navArgument("username") { type = NavType.StringType; defaultValue = "" }
             )
-        ) { backStackEntry ->
-            // Decode URL-encoded username
-            val rawUsername = backStackEntry.arguments?.getString("username") ?: ""
-            val username    = URLDecoder.decode(rawUsername, "UTF-8")
-            // SavedStateHandle trong ForgotPasswordViewModel sẽ tự đọc "username"
-            // từ navArgument — không cần truyền tay
+        ) {
             ForgotPasswordScreen(
                 onNavigateBack   = { navController.popBackStack() },
                 onNavigateToLogin = {
@@ -90,10 +81,9 @@ fun AppNavGraph() {
             val userId = back.arguments!!.getLong("userId")
             ChangePasswordScreen(
                 userId = userId,
+                // Không pop ChangePassword → SetupPin có thể back về đây
                 onNavigateToSetupPin = { uid ->
-                    navController.navigate(Screen.SetupPin.createRoute(uid)) {
-                        popUpTo(Screen.ChangePassword.route) { inclusive = true }
-                    }
+                    navController.navigate(Screen.SetupPin.createRoute(uid))
                 }
             )
         }
@@ -105,26 +95,32 @@ fun AppNavGraph() {
         ) { back ->
             val userId = back.arguments!!.getLong("userId")
             SetupPinScreen(
-                userId = userId,
-                onNavigateToPinReveal = { uid, pin ->
-                    navController.navigate(
-                        Screen.PinReveal.createRoute(uid) + "?pin=$pin"
-                    ) { popUpTo(Screen.SetupPin.route) { inclusive = true } }
+                userId          = userId,
+                onNavigateBack  = { navController.popBackStack() },
+                // PIN không truyền qua route — PinReveal đọc từ SetupPinViewModel
+                onNavigateToPinReveal = { uid ->
+                    // Không pop SetupPin khỏi back stack — PinReveal cần ViewModel của nó
+                    navController.navigate(Screen.PinReveal.createRoute(uid))
                 }
             )
         }
 
-        // ── PinReveal ─────────────────────────────────────────
+        // ── PinReveal — đọc PIN từ SetupPinViewModel ──────────
+        // PIN KHÔNG truyền qua route để tránh lộ trong back stack
         composable(
-            route = Screen.PinReveal.route + "?pin={pin}",
-            arguments = listOf(
-                navArgument("userId") { type = NavType.LongType },
-                navArgument("pin")    { type = NavType.StringType; defaultValue = "" }
-            )
+            route = Screen.PinReveal.route,
+            arguments = listOf(navArgument("userId") { type = NavType.LongType })
         ) { back ->
-            val pin = back.arguments?.getString("pin") ?: ""
+            // Lấy ViewModel của SetupPin (vẫn còn trong back stack)
+            val setupPinEntry = remember(back) {
+                runCatching { navController.getBackStackEntry(Screen.SetupPin.route) }.getOrNull()
+            }
+            val setupPinVm: SetupPinViewModel? = setupPinEntry?.let { hiltViewModel(it) }
+            val fallbackFlow = remember { MutableStateFlow(SetupPinUiState()) }
+            val pinState by (setupPinVm?.state ?: fallbackFlow).collectAsState()
+
             PinRevealScreen(
-                pin = pin,
+                pin = pinState.revealedPin,
                 onNavigateToDashboard = {
                     navController.navigate(Screen.ManagerDashboard.route) {
                         popUpTo(0) { inclusive = true }
@@ -136,8 +132,8 @@ fun AppNavGraph() {
         // ── KTV ───────────────────────────────────────────────
         composable(Screen.KtvDashboard.route) {
             KtvDashboardScreen(
-                onNavigateToScan   = { navController.navigate(Screen.ScanQr.route) },
-                onNavigateToDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) },
+                onNavigateToScan     = { navController.navigate(Screen.ScanQr.route) },
+                onNavigateToDetail   = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) },
                 onNavigateToHistory  = { navController.navigate(Screen.KtvHistory.route) },
                 onNavigateToSettings = { navController.navigate(Screen.KtvSettings.route) }
             )
@@ -198,9 +194,9 @@ fun AppNavGraph() {
 
         composable(Screen.DeviceList.route) {
             DeviceListScreen(
-                onNavigateBack         = { navController.popBackStack() },
-                onNavigateToAddDevice  = { navController.navigate(Screen.AddEditDevice.createRoute(0L)) },
-                onNavigateToEditDevice = { id -> navController.navigate(Screen.AddEditDevice.createRoute(id)) },
+                onNavigateBack           = { navController.popBackStack() },
+                onNavigateToAddDevice    = { navController.navigate(Screen.AddEditDevice.createRoute(0L)) },
+                onNavigateToEditDevice   = { id -> navController.navigate(Screen.AddEditDevice.createRoute(id)) },
                 onNavigateToDeviceDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
             )
         }

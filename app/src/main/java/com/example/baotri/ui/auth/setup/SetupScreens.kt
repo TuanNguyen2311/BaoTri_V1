@@ -17,7 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
@@ -27,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
+
+private val STEP_LABELS = listOf("Đăng nhập", "Đổi mật khẩu", "Cài PIN")
 
 // ═══════════════════════════════════════════════════════════
 // CHANGE PASSWORD SCREEN
@@ -53,12 +57,11 @@ fun ChangePasswordScreen(
     ) {
         Spacer(Modifier.height(24.dp))
 
-        // Step indicator
-        StepIndicator(current = 2, total = 3)
+        // Step indicator với labels rõ ràng
+        StepIndicator(current = 2, total = 3, labels = STEP_LABELS)
 
         Spacer(Modifier.height(24.dp))
 
-        // Warning box
         InfoBox(
             message = "Bạn đang dùng mật khẩu mặc định. Vui lòng đổi mật khẩu trước khi tiếp tục sử dụng.",
             icon = Icons.Default.Shield,
@@ -75,15 +78,17 @@ fun ChangePasswordScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        // New password field
+        // New password field — với isError
+        val newIsError = state.newPasswordError != null
         Text("Mật khẩu mới", style = MaterialTheme.typography.labelMedium,
-            color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
+            color = if (newIsError) RedColor else TextSecondary,
+            modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
             value = state.newPassword,
             onValueChange = vm::onNewPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Nhập mật khẩu mới", color = TextTertiary) },
-            leadingIcon = { Icon(Icons.Default.Lock, null, tint = TextTertiary) },
+            leadingIcon = { Icon(Icons.Default.Lock, null, tint = if (newIsError) RedColor else TextTertiary) },
             trailingIcon = {
                 IconButton(onClick = { showNew = !showNew }) {
                     Icon(if (showNew) Icons.Default.VisibilityOff else Icons.Default.Visibility, null, tint = TextTertiary)
@@ -91,25 +96,34 @@ fun ChangePasswordScreen(
             },
             visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
             singleLine = true,
+            isError = newIsError,
+            supportingText = state.newPasswordError?.let { { Text(it, color = RedColor, fontSize = 12.sp) } },
             shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenPrimary, unfocusedBorderColor = BorderColor)
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary, unfocusedBorderColor = BorderColor,
+                errorBorderColor = RedColor, errorLeadingIconColor = RedColor
+            )
         )
 
         // Strength bar
-        Spacer(Modifier.height(8.dp))
-        PasswordStrengthBar(strength = state.passwordStrength)
+        if (!newIsError) {
+            Spacer(Modifier.height(8.dp))
+            PasswordStrengthBar(strength = state.passwordStrength)
+        }
 
         Spacer(Modifier.height(14.dp))
 
-        // Confirm password
+        // Confirm password field — với isError
+        val confirmIsError = state.confirmPasswordError != null
         Text("Xác nhận mật khẩu", style = MaterialTheme.typography.labelMedium,
-            color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
+            color = if (confirmIsError) RedColor else TextSecondary,
+            modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
             value = state.confirmPassword,
             onValueChange = vm::onConfirmPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Nhập lại mật khẩu...", color = TextTertiary) },
-            leadingIcon = { Icon(Icons.Default.LockOpen, null, tint = TextTertiary) },
+            leadingIcon = { Icon(Icons.Default.LockOpen, null, tint = if (confirmIsError) RedColor else TextTertiary) },
             trailingIcon = {
                 IconButton(onClick = { showConfirm = !showConfirm }) {
                     Icon(if (showConfirm) Icons.Default.VisibilityOff else Icons.Default.Visibility, null, tint = TextTertiary)
@@ -117,21 +131,20 @@ fun ChangePasswordScreen(
             },
             visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
             singleLine = true,
+            isError = confirmIsError,
+            supportingText = state.confirmPasswordError?.let { { Text(it, color = RedColor, fontSize = 12.sp) } },
             shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenPrimary, unfocusedBorderColor = BorderColor)
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary, unfocusedBorderColor = BorderColor,
+                errorBorderColor = RedColor, errorLeadingIconColor = RedColor
+            )
         )
 
         Spacer(Modifier.height(16.dp))
 
-        // Rules
         PasswordRules(password = state.newPassword)
 
-        Spacer(Modifier.height(8.dp))
-
-        if (state.error != null) {
-            Text(state.error!!, color = RedColor, fontSize = 13.sp)
-            Spacer(Modifier.height(8.dp))
-        }
+        Spacer(Modifier.height(16.dp))
 
         LoadingButton(
             text = "Xác nhận & Tiếp tục",
@@ -148,14 +161,15 @@ fun ChangePasswordScreen(
 @Composable
 fun SetupPinScreen(
     userId: Long,
-    onNavigateToPinReveal: (Long, String) -> Unit,
+    onNavigateBack: () -> Unit,
+    onNavigateToPinReveal: (Long) -> Unit,   // không truyền PIN qua route
     vm: SetupPinViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
 
     LaunchedEffect(state.navigateToPinReveal) {
         if (state.navigateToPinReveal) {
-            onNavigateToPinReveal(userId, state.enteredPin)
+            onNavigateToPinReveal(userId)
             vm.clearNav()
         }
     }
@@ -167,7 +181,16 @@ fun SetupPinScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(24.dp))
-        StepIndicator(current = 3, total = 3)
+
+        // Back button
+        Row(modifier = Modifier.fillMaxWidth()) {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại bước đổi mật khẩu")
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        StepIndicator(current = 3, total = 3, labels = STEP_LABELS)
         Spacer(Modifier.height(24.dp))
 
         Text(
@@ -195,7 +218,6 @@ fun SetupPinScreen(
         Text("Nhập mã PIN 6 số", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
         Spacer(Modifier.height(12.dp))
 
-        // PIN dots
         val currentPin = if (state.step == PinStep.ENTER) state.pin else state.confirmPin
         PinDots(filled = currentPin.length, total = 6, color = PurplePrimary)
 
@@ -205,7 +227,6 @@ fun SetupPinScreen(
         }
         Spacer(Modifier.height(8.dp))
 
-        // Numpad
         PinNumpad(onDigit = { d -> vm.onDigitEntered(d, userId) }, onBackspace = vm::onBackspace)
     }
 }
@@ -230,7 +251,6 @@ fun PinRevealScreen(
     ) {
         Spacer(Modifier.height(32.dp))
 
-        // Success icon
         Box(
             modifier = Modifier
                 .size(72.dp)
@@ -249,7 +269,6 @@ fun PinRevealScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        // PIN Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -277,7 +296,6 @@ fun PinRevealScreen(
 
                 Spacer(Modifier.height(14.dp))
 
-                // PIN digits
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
@@ -308,16 +326,17 @@ fun PinRevealScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // Confirm checkbox
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { confirmed = !confirmed },
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { confirmed = !confirmed }
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
                 checked = confirmed,
-                onCheckedChange = { confirmed = it },
+                onCheckedChange = null,   // handled by Row
                 colors = CheckboxDefaults.colors(checkedColor = GreenPrimary)
             )
             Spacer(Modifier.width(8.dp))
@@ -361,6 +380,7 @@ fun PinDots(filled: Int, total: Int, color: Color) {
 
 @Composable
 fun PinNumpad(onDigit: (String) -> Unit, onBackspace: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
     val keys = listOf("1","2","3","4","5","6","7","8","9","","0","⌫")
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         keys.chunked(3).forEach { row ->
@@ -372,22 +392,30 @@ fun PinNumpad(onDigit: (String) -> Unit, onBackspace: () -> Unit) {
                     when (key) {
                         "" -> Spacer(Modifier.weight(1f).height(52.dp))
                         "⌫" -> OutlinedButton(
-                            onClick = onBackspace,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onBackspace()
+                            },
                             modifier = Modifier.weight(1f).height(52.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = null,
                             colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent)
                         ) { Text("⌫", fontSize = 22.sp, color = TextSecondary) }
                         else -> OutlinedButton(
-                            onClick = { onDigit(key) },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onDigit(key)
+                            },
                             modifier = Modifier.weight(1f).height(52.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant
                             )
-                        ) { Text(key, fontSize = 22.sp, fontWeight = FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onBackground) }
+                        ) {
+                            Text(key, fontSize = 22.sp, fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onBackground)
+                        }
                     }
                 }
             }
@@ -395,42 +423,61 @@ fun PinNumpad(onDigit: (String) -> Unit, onBackspace: () -> Unit) {
     }
 }
 
+// ── StepIndicator với labels ──────────────────────────────────
 @Composable
-fun StepIndicator(current: Int, total: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        for (i in 1..total) {
-            val done = i < current
-            val active = i == current
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(when { done -> GreenPrimary; active -> PurplePrimary; else -> MaterialTheme.colorScheme.surfaceVariant })
-                    .border(1.dp, if (!done && !active) BorderColor else Color.Transparent, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (done) Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                else Text(i.toString(), color = if (active) Color.White else TextTertiary,
-                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+fun StepIndicator(current: Int, total: Int, labels: List<String> = emptyList()) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            for (i in 1..total) {
+                val done   = i < current
+                val active = i == current
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(when { done -> GreenPrimary; active -> PurplePrimary; else -> MaterialTheme.colorScheme.surfaceVariant })
+                        .border(1.dp, if (!done && !active) BorderColor else Color.Transparent, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (done) Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    else Text(i.toString(), color = if (active) Color.White else TextTertiary,
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                if (i < total) {
+                    HorizontalDivider(
+                        modifier = Modifier.width(32.dp),
+                        color = if (done) GreenPrimary else BorderColor,
+                        thickness = 1.dp
+                    )
+                }
             }
-            if (i < total) {
-                HorizontalDivider(
-                    modifier = Modifier.width(32.dp),
-                    color = if (done) GreenPrimary else BorderColor,
-                    thickness = 1.dp
-                )
-            }
+        }
+        // Label bước hiện tại
+        if (labels.isNotEmpty() && current <= labels.size) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                labels[current - 1],
+                style = MaterialTheme.typography.labelSmall,
+                color = PurplePrimary,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
 
+// ── Password Strength Bar — 4 màu riêng biệt ─────────────────
 @Composable
 fun PasswordStrengthBar(strength: Int) {
-    val colors = listOf(RedColor, AmberColor, AmberColor, GreenPrimary)
+    val colors = listOf(
+        RedColor,                   // Rất yếu
+        Color(0xFFEA580C),          // Yếu (Orange)
+        AmberColor,                 // Trung bình
+        GreenPrimary                // Mạnh
+    )
     val label = listOf("Rất yếu", "Yếu", "Trung bình", "Mạnh")
 
     Column {
