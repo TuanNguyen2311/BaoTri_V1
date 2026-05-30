@@ -92,6 +92,13 @@ data class MaintenanceLog(
         get() = !isDraft && status != MaintenanceStatus.RESOLVED
 }
 
+// ── Device Stats ────────────────────────────────────────────
+data class DeviceStats(
+    val total: Int,
+    val pending: Int,
+    val expiredWarranty: Int
+)
+
 // ── Dashboard Stats ─────────────────────────────────────────
 data class ManagerStats(
     val totalDevices: Int,

@@ -13,12 +13,11 @@ import kotlinx.coroutines.flow.map
 import java.util.Calendar
 import javax.inject.Inject
 
-private val gson = Gson()
-
 class MaintenanceLogRepositoryImpl @Inject constructor(
     private val logDao: MaintenanceLogDao,
     private val deviceDao: DeviceDao,
-    private val historyDao: LogStatusHistoryDao
+    private val historyDao: LogStatusHistoryDao,
+    private val gson: Gson
 ) : MaintenanceLogRepository {
 
     override fun getLogsForDevice(deviceId: Long): Flow<List<MaintenanceLog>> =
@@ -132,15 +131,17 @@ class MaintenanceLogRepositoryImpl @Inject constructor(
         cal.set(Calendar.DAY_OF_MONTH, 1)
         cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
         val monthStart = cal.timeInMillis
-        val (total, pending, expired) = Triple(
-            deviceDao.count(),
-            deviceDao.countWithPendingIssues(),
-            deviceDao.countExpiredWarranty()
-        )
+        val deviceStats = deviceDao.run {
+            com.example.baotri.domain.model.DeviceStats(
+                total           = count(),
+                pending         = countWithPendingIssues(),
+                expiredWarranty = countExpiredWarranty()
+            )
+        }
         return ManagerStats(
-            totalDevices         = total,
-            pendingCount         = pending,
-            expiredWarrantyCount = expired,
+            totalDevices         = deviceStats.total,
+            pendingCount         = deviceStats.pending,
+            expiredWarrantyCount = deviceStats.expiredWarranty,
             logsThisMonth        = logDao.countInRange(monthStart, now)
         )
     }

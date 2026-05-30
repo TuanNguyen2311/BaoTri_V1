@@ -1,7 +1,10 @@
 package com.example.baotri.domain.repository
 
+import com.example.baotri.domain.model.DeviceStats
 import com.example.baotri.domain.model.*
 import kotlinx.coroutines.flow.Flow
+
+const val DEFAULT_TECHNICIAN_PASSWORD = "1234"
 
 interface UserRepository {
     suspend fun login(username: String, password: String): User?
@@ -16,7 +19,7 @@ interface UserRepository {
     suspend fun resetPasswordWithPin(userId: Long, pin: String, newPassword: String): Boolean
     fun getAllTechnicians(): Flow<List<User>>
     suspend fun createTechnician(username: String, password: String, fullName: String): Long
-    suspend fun resetTechnicianPassword(userId: Long)
+    suspend fun resetTechnicianPassword(userId: Long, newPassword: String = DEFAULT_TECHNICIAN_PASSWORD)
     suspend fun setTechnicianActive(userId: Long, active: Boolean)
     suspend fun deleteTechnician(userId: Long)
     suspend fun isFirstLogin(userId: Long): Boolean
@@ -33,7 +36,7 @@ interface DeviceRepository {
     suspend fun updateDevice(device: Device)
     suspend fun deleteDevice(deviceId: Long)
     suspend fun updateQrPath(deviceId: Long, path: String)
-    suspend fun getStats(): Triple<Int, Int, Int>
+    suspend fun getStats(): DeviceStats
 }
 
 interface MaintenanceLogRepository {

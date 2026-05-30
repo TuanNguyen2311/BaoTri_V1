@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.baotri.domain.model.KtvStats
 import com.example.baotri.domain.model.MaintenanceLog
+import com.example.baotri.domain.usecase.auth.GetCurrentSessionUseCase
 import com.example.baotri.domain.usecase.log.GetKtvStatsUseCase
 import com.example.baotri.domain.usecase.log.GetUserLogsUseCase
-import com.example.baotri.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ data class KtvDashboardUiState(
 
 @HiltViewModel
 class KtvDashboardViewModel @Inject constructor(
-    private val session: SessionManager,
+    private val getCurrentSession: GetCurrentSessionUseCase,
     private val getKtvStats: GetKtvStatsUseCase,
     private val getUserLogs: GetUserLogsUseCase
 ) : ViewModel() {
@@ -32,8 +32,7 @@ class KtvDashboardViewModel @Inject constructor(
     init { load() }
 
     private fun load() = viewModelScope.launch {
-        val userId = session.currentUserId.first()
-        val fullName = session.currentFullName.first()
+        val (userId, fullName) = getCurrentSession()
 
         // Load recent logs
         getUserLogs(userId)

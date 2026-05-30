@@ -70,8 +70,8 @@ class UserRepositoryImpl @Inject constructor(
         return dao.insert(entity)
     }
 
-    override suspend fun resetTechnicianPassword(userId: Long) {
-        dao.updatePassword(userId, SecurityUtil.sha256("1234"))
+    override suspend fun resetTechnicianPassword(userId: Long, newPassword: String) {
+        dao.updatePassword(userId, SecurityUtil.sha256(newPassword))
     }
 
     override suspend fun setTechnicianActive(userId: Long, active: Boolean) {

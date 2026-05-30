@@ -4,6 +4,7 @@ import com.example.baotri.data.db.dao.DeviceDao
 import com.example.baotri.data.db.dao.MaintenanceLogDao
 import com.example.baotri.data.model.LogStatus
 import com.example.baotri.domain.model.Device
+import com.example.baotri.domain.model.DeviceStats
 import com.example.baotri.domain.model.MaintenanceStatus
 import com.example.baotri.domain.repository.DeviceRepository
 import kotlinx.coroutines.flow.Flow
@@ -56,10 +57,9 @@ class DeviceRepositoryImpl @Inject constructor(
     override suspend fun updateQrPath(deviceId: Long, path: String) =
         deviceDao.updateQrPath(deviceId, path)
 
-    override suspend fun getStats(): Triple<Int, Int, Int> {
-        val total   = deviceDao.count()
-        val pending = deviceDao.countWithPendingIssues()
-        val expired = deviceDao.countExpiredWarranty()
-        return Triple(total, pending, expired)
-    }
+    override suspend fun getStats(): DeviceStats = DeviceStats(
+        total           = deviceDao.count(),
+        pending         = deviceDao.countWithPendingIssues(),
+        expiredWarranty = deviceDao.countExpiredWarranty()
+    )
 }

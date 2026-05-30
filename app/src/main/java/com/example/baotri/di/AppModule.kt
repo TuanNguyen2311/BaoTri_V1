@@ -41,9 +41,10 @@ object AppModule {
     fun provideLogRepository(
         logDao: MaintenanceLogDao,
         deviceDao: DeviceDao,
-        historyDao: LogStatusHistoryDao
+        historyDao: LogStatusHistoryDao,
+        gson: Gson
     ): MaintenanceLogRepository =
-        MaintenanceLogRepositoryImpl(logDao, deviceDao, historyDao)
+        MaintenanceLogRepositoryImpl(logDao, deviceDao, historyDao, gson)
 
     @Provides @Singleton
     fun provideBackupRepository(db: AppDatabase, historyDao: BackupHistoryDao, gson: Gson): BackupRepository =
