@@ -35,10 +35,6 @@ fun DeviceListScreen(
 ) {
     val state by vm.state.collectAsState()
     val areas = listOf("Tất cả", "Khu A", "Khu B", "Khu C")
-    var selectedArea by remember { mutableStateOf("Tất cả") }
-
-    val filtered = if (selectedArea == "Tất cả") state.devices
-    else state.devices.filter { it.location.contains(selectedArea, true) }
 
     Scaffold(
         topBar = {
@@ -74,13 +70,13 @@ fun DeviceListScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(areas) { area ->
-                    val sel = selectedArea == area
+                    val sel = state.selectedArea == area
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(99.dp))
                             .background(if (sel) PurpleLight else MaterialTheme.colorScheme.surfaceVariant)
                             .border(1.dp, if (sel) PurplePrimary else BorderColor, RoundedCornerShape(99.dp))
-                            .clickable { selectedArea = area }
+                            .clickable { vm.onAreaChange(area) }
                             .padding(horizontal = 14.dp, vertical = 6.dp)
                     ) {
                         Text(area, fontSize = 12.sp,
@@ -95,17 +91,17 @@ fun DeviceListScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("${filtered.size} thiết bị", fontSize = 12.sp, color = TextSecondary)
+                Text("${state.filteredDevices.size} thiết bị", fontSize = 12.sp, color = TextSecondary)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Default.Sort, null, tint = PurplePrimary, modifier = Modifier.size(16.dp))
                     Text("Mới nhất", fontSize = 12.sp, color = PurplePrimary)
                 }
             }
-            if (filtered.isEmpty()) {
+            if (state.filteredDevices.isEmpty()) {
                 EmptyState(icon = Icons.Default.Build, message = "Không có thiết bị nào")
             } else {
                 LazyColumn {
-                    items(filtered) { device ->
+                    items(state.filteredDevices) { device ->
                         DeviceListItem(
                             device = device,
                             onClick = { onNavigateToDeviceDetail(device.id) },

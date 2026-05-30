@@ -74,14 +74,18 @@ class GetManagerStatsUseCase @Inject constructor(private val repo: MaintenanceLo
     suspend operator fun invoke(): ManagerStats = repo.getManagerStats()
 }
 
-class GetReportUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
-    suspend fun getWeeklyStats(monthStart: Long, monthEnd: Long): List<WeeklyLogCount> =
+class GetWeeklyStatsUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
+    suspend operator fun invoke(monthStart: Long, monthEnd: Long): List<WeeklyLogCount> =
         repo.getWeeklyStats(monthStart, monthEnd)
+}
 
-    suspend fun getTopDevices(from: Long, to: Long): List<DeviceIncident> =
+class GetTopDevicesUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
+    suspend operator fun invoke(from: Long, to: Long): List<DeviceIncident> =
         repo.getTopDevicesByIncidents(from, to)
+}
 
-    suspend fun getSummary(from: Long, to: Long): Map<String, Int> {
+class GetReportSummaryUseCase @Inject constructor(private val repo: MaintenanceLogRepository) {
+    suspend operator fun invoke(from: Long, to: Long): Map<String, Int> {
         val logs = repo.getLogsInRange(from, to)
         return mapOf(
             "total"    to logs.size,

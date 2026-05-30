@@ -27,16 +27,14 @@ data class Device(
     val latestStatus: MaintenanceStatus? = null,
     val logCount: Int = 0
 ) {
-    val isWarrantyExpired: Boolean
-        get() = warrantyDate != null && warrantyDate < System.currentTimeMillis()
+    fun isWarrantyExpired(now: Long): Boolean =
+        warrantyDate != null && warrantyDate < now
 
-    val isWarrantyExpiringSoon: Boolean
-        get() {
-            if (warrantyDate == null) return false
-            val thirtyDays = 30L * 24 * 60 * 60 * 1000
-            return warrantyDate > System.currentTimeMillis() &&
-                   warrantyDate < System.currentTimeMillis() + thirtyDays
-        }
+    fun isWarrantyExpiringSoon(now: Long): Boolean {
+        if (warrantyDate == null) return false
+        val thirtyDays = 30L * 24 * 60 * 60 * 1000
+        return warrantyDate > now && warrantyDate < now + thirtyDays
+    }
 }
 
 // ── Maintenance Log ─────────────────────────────────────────

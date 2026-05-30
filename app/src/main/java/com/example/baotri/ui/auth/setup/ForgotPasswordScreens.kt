@@ -1,17 +1,5 @@
 package com.example.baotri.ui.auth.setup
 
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.baotri.domain.usecase.auth.ForgotPasswordUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-// ── Screens ───────────────────────────────────────────────────
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,97 +24,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
-
-// ── States ────────────────────────────────────────────────────
-enum class ForgotStep { ENTER_PIN, RESET_PASSWORD }
-
-data class ForgotPasswordUiState(
-    val username: String = "",          // ← nhận từ LoginScreen
-    val step: ForgotStep = ForgotStep.ENTER_PIN,
-    val pin: String = "",
-    val newPassword: String = "",
-    val confirmPassword: String = "",
-    val showNewPassword: Boolean = false,
-    val showConfirmPassword: Boolean = false,
-    val verifiedUserId: Long? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val pinAttempts: Int = 0,
-    val success: Boolean = false
-) {
-    // Khóa nhập PIN sau 3 lần sai
-    val isPinLocked: Boolean get() = pinAttempts >= 3
-}
-
-@HiltViewModel
-class ForgotPasswordViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
-    private val useCase: ForgotPasswordUseCase
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(ForgotPasswordUiState())
-    val state: StateFlow<ForgotPasswordUiState> = _state.asStateFlow()
-
-    init {
-        // Nhận username được truyền qua Navigation argument
-        val username = savedStateHandle.get<String>("username") ?: ""
-        _state.update { it.copy(username = username) }
-    }
-
-    fun onPinDigit(digit: String) {
-        val s = _state.value
-        if (s.isPinLocked || s.isLoading) return
-        val newPin = (s.pin + digit).take(6)
-        _state.update { it.copy(pin = newPin, error = null) }
-        if (newPin.length == 6) verifyPin(newPin)
-    }
-
-    fun onPinBackspace() {
-        _state.update { it.copy(pin = it.pin.dropLast(1)) }
-    }
-
-    private fun verifyPin(pin: String) = viewModelScope.launch {
-        _state.update { it.copy(isLoading = true) }
-        // ← Truyền cả username + pin để xác nhận đúng user
-        useCase.verifyPinWithUsername(username = _state.value.username, pin = pin)
-            .onSuccess { user ->
-                _state.update { it.copy(
-                    isLoading   = false,
-                    step        = ForgotStep.RESET_PASSWORD,
-                    verifiedUserId = user.id,
-                    pin         = ""
-                )}
-            }
-            .onFailure { e ->
-                val attempts = _state.value.pinAttempts + 1
-                _state.update { it.copy(
-                    isLoading   = false,
-                    pin         = "",
-                    pinAttempts = attempts,
-                    error       = when {
-                        attempts >= 3 ->
-                            "Sai PIN 3 lần. Vui lòng liên hệ quản trị viên."
-                        else ->
-                            "PIN không đúng. Còn ${3 - attempts} lần thử."
-                    }
-                )}
-            }
-    }
-
-    fun onNewPasswordChange(v: String)     = _state.update { it.copy(newPassword = v, error = null) }
-    fun onConfirmPasswordChange(v: String) = _state.update { it.copy(confirmPassword = v, error = null) }
-    fun onToggleNewPassword()              = _state.update { it.copy(showNewPassword = !it.showNewPassword) }
-    fun onToggleConfirmPassword()          = _state.update { it.copy(showConfirmPassword = !it.showConfirmPassword) }
-
-    fun resetPassword() = viewModelScope.launch {
-        val s = _state.value
-        val userId = s.verifiedUserId ?: return@launch
-        _state.update { it.copy(isLoading = true, error = null) }
-        useCase.resetPassword(userId, s.newPassword, s.confirmPassword)
-            .onSuccess { _state.update { it.copy(isLoading = false, success = true) } }
-            .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
-    }
-}
 
 
 
@@ -365,7 +262,7 @@ private fun ResetPasswordScreen(
         LoadingButton(
             text       = "Xác nhận & Đăng nhập",
             loading    = state.isLoading,
-            onClick    = vm::resetPassword,
+            onClick    = vm::doResetPassword,
             modifier   = Modifier.fillMaxWidth(),
             containerColor = GreenPrimary
         )

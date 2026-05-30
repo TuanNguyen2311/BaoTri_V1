@@ -157,7 +157,7 @@ fun DeviceDetailScreen(
     val sheetState by vm.sheetState.collectAsState()
     val device = state.device
     val sheetScaffoldState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
+    val now = System.currentTimeMillis()
     // Show/hide bottom sheet
     LaunchedEffect(sheetState.isVisible) {
         if (sheetState.isVisible) sheetScaffoldState.show()
@@ -228,7 +228,7 @@ fun DeviceDetailScreen(
                         InfoCell(
                             label = "Hạn bảo hành",
                             value = device.warrantyDate?.let { DateUtil.format(it) } ?: "—",
-                            valueColor = if (device.isWarrantyExpired) AmberColor else null,
+                            valueColor = if (device.isWarrantyExpired(now)) AmberColor else null,
                             modifier = Modifier.weight(1f)
                         )
                         InfoCell("Danh mục", device.category, modifier = Modifier.weight(1f))
@@ -240,9 +240,10 @@ fun DeviceDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         StatusBadge(status = device.latestStatus ?: MaintenanceStatus.RESOLVED)
-                        if (device.isWarrantyExpired)
+
+                        if (device.isWarrantyExpired(now))
                             Text("⚠ Hết bảo hành", fontSize = 12.sp, color = AmberColor, fontWeight = FontWeight.Medium)
-                        else if (device.isWarrantyExpiringSoon)
+                        else if (device.isWarrantyExpiringSoon(now))
                             Text("⚠ Sắp hết bảo hành", fontSize = 12.sp, color = AmberColor)
                     }
                 }
