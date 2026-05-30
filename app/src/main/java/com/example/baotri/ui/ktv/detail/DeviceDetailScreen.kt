@@ -33,6 +33,7 @@ import com.example.baotri.domain.model.MaintenanceStatus
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
 import com.example.baotri.util.DateUtil
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,10 +126,11 @@ fun DeviceDetailScreen(
     // ── Bottom Sheet chi tiết log ──────────────────────────────
     if (sheetState.isVisible) {
         ModalBottomSheet(
-            onDismissRequest = vm::closeSheet,
-            sheetState = sheetScaffoldState,
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            containerColor = MaterialTheme.colorScheme.surface
+            onDismissRequest  = vm::closeSheet,
+            sheetState        = sheetScaffoldState,
+            shape             = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            containerColor    = MaterialTheme.colorScheme.surface,
+            dragHandle        = {}          // tắt drag handle mặc định, tự quản lý trong header
         ) {
             LogDetailBottomSheet(
                 state            = sheetState,
@@ -347,8 +349,21 @@ private fun LogDetailBottomSheet(
     onSubmit: () -> Unit
 ) {
     val log = state.log
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope   = rememberCoroutineScope()
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let { onPhotoAdded(it.toString()) }
+        uri?.let { selected ->
+            scope.launch {
+                val dir  = java.io.File(context.filesDir, "log_photos").also { it.mkdirs() }
+                val dest = java.io.File(dir, "log_${System.currentTimeMillis()}.jpg")
+                runCatching {
+                    context.contentResolver.openInputStream(selected)?.use { input ->
+                        dest.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    onPhotoAdded(dest.absolutePath)
+                }
+            }
+        }
     }
 
     Column(
@@ -357,13 +372,62 @@ private fun LogDetailBottomSheet(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 32.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // ── Compact header ──────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(top = 14.dp)
         ) {
-            Text("Chi tiết bảo trì", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            IconButton(onClick = onClose) { Icon(Icons.Default.Close, null) }
+            // Drag handle indicator (manual, không có margin thừa)
+            Box(
+                modifier = Modifier
+                    .width(36.dp).height(4.dp)
+                    .clip(RoundedCornerShape(99.dp))
+                    .background(BorderColor)
+                    .align(Alignment.CenterHorizontally)
+            )
+            Spacer(Modifier.height(12.dp))
+
+            // Title + close
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Chi tiết bảo trì",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold)
+                IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Close, null, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            // Badges + meta — chỉ hiện khi log đã load
+            if (log != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(99.dp))
+                            .background(PurpleLight)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(log.logType.displayName(), fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold, color = PurplePrimary)
+                    }
+                    StatusBadge(log.status)
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "${log.performedByName} · ${DateUtil.formatDateTime(log.performedAt)}",
+                    fontSize = 12.sp, color = TextSecondary
+                )
+            }
+            Spacer(Modifier.height(14.dp))
         }
         HorizontalDivider(color = BorderColor)
 
@@ -383,15 +447,6 @@ private fun LogDetailBottomSheet(
             if (!log.notes.isNullOrBlank()) {
                 Spacer(Modifier.height(10.dp))
                 DetailRow("Ghi chú", log.notes)
-            }
-        }
-
-        if (log.photoPaths.isNotEmpty()) {
-            HorizontalDivider(color = BorderColor)
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                Text("Ảnh đính kèm", style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
-                PhotoGrid(photoPaths = log.photoPaths)
             }
         }
 
@@ -571,24 +626,35 @@ private fun StatusTimelineItem(history: com.example.baotri.domain.model.LogStatu
 // ── Photo Grid ────────────────────────────────────────────────
 @Composable
 private fun PhotoGrid(photoPaths: List<String>, size: Int = 72) {
-    var expandedUri by remember { mutableStateOf<String?>(null) }
+    var expandedPath by remember { mutableStateOf<String?>(null) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        photoPaths.forEach { uri ->
+        photoPaths.forEach { path ->
+            val model = if (path.startsWith("/")) java.io.File(path) else path
             AsyncImage(
-                model = uri, contentDescription = null,
+                model = model, contentDescription = null,
                 modifier = Modifier.size(size.dp).clip(RoundedCornerShape(8.dp))
                     .border(0.5.dp, BorderColor, RoundedCornerShape(8.dp))
-                    .clickable { expandedUri = uri },
+                    .clickable { expandedPath = path },
                 contentScale = ContentScale.Crop
             )
         }
     }
-    if (expandedUri != null) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { expandedUri = null }) {
-            Box(modifier = Modifier.fillMaxSize().clickable { expandedUri = null }) {
+    if (expandedPath != null) {
+        val expandedModel = if (expandedPath!!.startsWith("/")) java.io.File(expandedPath!!) else expandedPath
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { expandedPath = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .clickable { expandedPath = null },
+                contentAlignment = Alignment.Center
+            ) {
                 AsyncImage(
-                    model = expandedUri, contentDescription = null,
-                    modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                    model = expandedModel, contentDescription = null,
+                    modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.Fit
                 )
             }

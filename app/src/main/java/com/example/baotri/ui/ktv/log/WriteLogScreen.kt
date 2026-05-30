@@ -28,6 +28,7 @@ import com.example.baotri.domain.model.*
 import com.example.baotri.ui.shared.components.*
 import com.example.baotri.ui.shared.theme.*
 import com.example.baotri.util.DateUtil
+import kotlinx.coroutines.launch
 
 // ── Screen ────────────────────────────────────────────────────
 
@@ -36,10 +37,25 @@ fun WriteLogScreen(
     onNavigateBack: () -> Unit,
     vm: WriteLogViewModel = hiltViewModel()
 ) {
-    val state by vm.state.collectAsState()
+    val state   by vm.state.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope   = rememberCoroutineScope()
     val photoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? -> uri?.let { vm.onPhotoAdded(it.toString()) } }
+    ) { uri: Uri? ->
+        uri?.let { selected ->
+            scope.launch {
+                val dir  = java.io.File(context.filesDir, "log_photos").also { it.mkdirs() }
+                val dest = java.io.File(dir, "log_${System.currentTimeMillis()}.jpg")
+                runCatching {
+                    context.contentResolver.openInputStream(selected)?.use { input ->
+                        dest.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    vm.onPhotoAdded(dest.absolutePath)
+                }
+            }
+        }
+    }
 
     LaunchedEffect(state.saved) { if (state.saved) onNavigateBack() }
 
@@ -185,13 +201,14 @@ fun WriteLogScreen(
                 // ── Photos ─────────────────────────────────
                 FormLabel("Ảnh đính kèm")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.photoPaths.forEach { uri ->
+                    state.photoPaths.forEach { path ->
+                        val model = if (path.startsWith("/")) java.io.File(path) else path
                         Box(modifier = Modifier.size(64.dp)) {
-                            AsyncImage(model = uri, contentDescription = null,
+                            AsyncImage(model = model, contentDescription = null,
                                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)),
                                 contentScale = ContentScale.Crop)
                             IconButton(
-                                onClick = { vm.onPhotoRemoved(uri) },
+                                onClick = { vm.onPhotoRemoved(path) },
                                 modifier = Modifier.size(20.dp).align(Alignment.TopEnd)
                             ) {
                                 Icon(Icons.Default.Close, null, tint = Color.White,
