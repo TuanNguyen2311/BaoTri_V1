@@ -27,7 +27,6 @@ import com.example.baotri.ui.shared.theme.*
 
 @Composable
 fun DeviceListScreen(
-    onNavigateBack: () -> Unit,
     onNavigateToAddDevice: () -> Unit,
     onNavigateToEditDevice: (Long) -> Unit,
     onNavigateToDeviceDetail: (Long) -> Unit,
@@ -40,7 +39,6 @@ fun DeviceListScreen(
         topBar = {
             BaoTriTopBar(
                 title = "Thiết bị",
-                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, null) } },
                 actions = {
                     TextButton(onClick = onNavigateToAddDevice) {
                         Icon(Icons.Default.Add, null, tint = PurplePrimary, modifier = Modifier.size(18.dp))
@@ -108,7 +106,7 @@ fun DeviceListScreen(
                             onEdit = { onNavigateToEditDevice(device.id) }
                         )
                     }
-                    item { Spacer(Modifier.height(80.dp)) }
+                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }

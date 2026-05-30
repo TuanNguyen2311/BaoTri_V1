@@ -41,6 +41,7 @@ sealed class Screen(val route: String) {
     object KtvSettings : Screen("ktv_settings")
 
     // ── Manager ───────────────────────────────────────────────
+    object ManagerTabs        : Screen("manager_tabs")
     object ManagerDashboard   : Screen("manager_dashboard")
     object DeviceList         : Screen("device_list")
 

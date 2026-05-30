@@ -18,10 +18,8 @@ import com.example.baotri.ui.ktv.log.WriteLogScreen
 import com.example.baotri.ui.ktv.scan.ScanScreen
 import com.example.baotri.ui.manager.account.AccountManagementScreen
 import com.example.baotri.ui.manager.backup.BackupRestoreScreen
-import com.example.baotri.ui.manager.dashboard.ManagerDashboardScreen
+import com.example.baotri.ui.manager.ManagerTabsHost
 import com.example.baotri.ui.manager.device.AddEditDeviceScreen
-import com.example.baotri.ui.manager.device.DeviceListScreen
-import com.example.baotri.ui.manager.report.ReportScreen
 import com.example.baotri.ui.manager.settings.SettingsScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.net.URLDecoder
@@ -30,7 +28,7 @@ import java.net.URLDecoder
 fun AppNavGraph() {
     val navController = rememberNavController()
 
-    val dashboardRoutes = setOf(Screen.KtvDashboard.route, Screen.ManagerDashboard.route)
+    val dashboardRoutes = setOf(Screen.KtvDashboard.route, Screen.ManagerTabs.route)
 
     NavHost(
         navController    = navController,
@@ -83,7 +81,7 @@ fun AppNavGraph() {
                     }
                 },
                 onNavigateToManagerDashboard = {
-                    navController.navigate(Screen.ManagerDashboard.route) {
+                    navController.navigate(Screen.ManagerTabs.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
@@ -162,7 +160,7 @@ fun AppNavGraph() {
             PinRevealScreen(
                 pin = pinState.revealedPin,
                 onNavigateToDashboard = {
-                    navController.navigate(Screen.ManagerDashboard.route) {
+                    navController.navigate(Screen.ManagerTabs.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
@@ -223,21 +221,14 @@ fun AppNavGraph() {
         }
 
         // ── Manager ───────────────────────────────────────────
-        composable(Screen.ManagerDashboard.route) {
-            ManagerDashboardScreen(
-                onNavigateToDevices      = { navController.navigate(Screen.DeviceList.route) },
-                onNavigateToReports      = { navController.navigate(Screen.Reports.route) },
-                onNavigateToSettings     = { navController.navigate(Screen.ManagerSettings.route) },
-                onNavigateToDeviceDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
-            )
-        }
-
-        composable(Screen.DeviceList.route) {
-            DeviceListScreen(
-                onNavigateBack           = { navController.popBackStack() },
+        composable(Screen.ManagerTabs.route) {
+            ManagerTabsHost(
+                onNavigateToDeviceDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) },
                 onNavigateToAddDevice    = { navController.navigate(Screen.AddEditDevice.createRoute(0L)) },
                 onNavigateToEditDevice   = { id -> navController.navigate(Screen.AddEditDevice.createRoute(id)) },
-                onNavigateToDeviceDetail = { id -> navController.navigate(Screen.DeviceDetail.createRoute(id)) }
+                onNavigateToAccounts     = { navController.navigate(Screen.AccountManagement.route) },
+                onNavigateToBackup       = { navController.navigate(Screen.BackupRestore.route) },
+                onLogout                 = { navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } } }
             )
         }
 
@@ -248,25 +239,12 @@ fun AppNavGraph() {
             AddEditDeviceScreen(onNavigateBack = { navController.popBackStack() })
         }
 
-        composable(Screen.Reports.route) {
-            ReportScreen(onNavigateBack = { navController.popBackStack() })
-        }
-
         composable(Screen.AccountManagement.route) {
             AccountManagementScreen(onNavigateBack = { navController.popBackStack() })
         }
 
         composable(Screen.BackupRestore.route) {
             BackupRestoreScreen(onNavigateBack = { navController.popBackStack() })
-        }
-
-        composable(Screen.ManagerSettings.route) {
-            SettingsScreen(
-                isManager            = true,
-                onLogout             = { navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } } },
-                onNavigateToBackup   = { navController.navigate(Screen.BackupRestore.route) },
-                onNavigateToAccounts = { navController.navigate(Screen.AccountManagement.route) }
-            )
         }
     }
 }

@@ -31,25 +31,12 @@ import com.example.baotri.ui.shared.theme.*
 
 @Composable
 fun ManagerDashboardScreen(
-    onNavigateToDevices: () -> Unit,
-    onNavigateToReports: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     onNavigateToDeviceDetail: (Long) -> Unit,
     vm: ManagerDashboardViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
 
-    Scaffold(
-        bottomBar = {
-            ManagerBottomNav(
-                current = 0,
-                onDashboard = {},
-                onDevices = onNavigateToDevices,
-                onReports = onNavigateToReports,
-                onSettings = onNavigateToSettings
-            )
-        }
-    ) { padding ->
+    Scaffold { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)

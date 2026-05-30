@@ -27,7 +27,6 @@ import com.example.baotri.ui.shared.theme.*
 
 @Composable
 fun ReportScreen(
-    onNavigateBack: () -> Unit,
     vm: ReportViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
@@ -37,7 +36,6 @@ fun ReportScreen(
         topBar = {
             BaoTriTopBar(
                 title = "Báo cáo",
-                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, null) } },
                 actions = {
                     TextButton(onClick = {}) {
                         Icon(Icons.Default.FileDownload, null, tint = PurplePrimary, modifier = Modifier.size(18.dp))
