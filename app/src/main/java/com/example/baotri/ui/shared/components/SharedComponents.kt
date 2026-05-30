@@ -197,12 +197,17 @@ fun BaoTriTopBar(
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    TopAppBar(
-        title = { Text(title, fontWeight = FontWeight.SemiBold) },
-        navigationIcon = { navigationIcon?.invoke() },
-        actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface
+    Column{
+        TopAppBar(
+            title = { Text(title, fontWeight = FontWeight.SemiBold) },
+            navigationIcon = { navigationIcon?.invoke() },
+            actions = actions,
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor        = MaterialTheme.colorScheme.background,
+                scrolledContainerColor = MaterialTheme.colorScheme.background
+            )
         )
-    )
+        HorizontalDivider(color = BorderColor, thickness = 0.5.dp)
+    }
+
 }

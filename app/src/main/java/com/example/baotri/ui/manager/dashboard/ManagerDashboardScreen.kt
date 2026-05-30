@@ -29,6 +29,7 @@ import com.example.baotri.ui.shared.theme.*
 // ── Screen ─────────────────────────────────────────────────────
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManagerDashboardScreen(
     onNavigateToDeviceDetail: (Long) -> Unit,
@@ -36,36 +37,45 @@ fun ManagerDashboardScreen(
 ) {
     val state by vm.state.collectAsState()
 
-    Scaffold { padding ->
+    Scaffold(
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("Tổng quan hệ thống",
+                                style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Text(state.fullName,
+                                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    actions = {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 16.dp)
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(PurpleLight)
+                                .border(1.dp, PurplePrimary.copy(.3f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AdminPanelSettings, null,
+                                tint = PurplePrimary, modifier = Modifier.size(20.dp))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor         = MaterialTheme.colorScheme.background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+                HorizontalDivider(color = BorderColor, thickness = 0.5.dp)
+            }
+        }
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            // Header
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Tổng quan hệ thống",
-                            style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        Text(state.fullName,
-                            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
-                    Box(
-                        modifier = Modifier.size(38.dp).clip(CircleShape)
-                            .background(PurpleLight).border(1.dp, PurplePrimary.copy(.3f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.AdminPanelSettings, null,
-                            tint = PurplePrimary, modifier = Modifier.size(20.dp))
-                    }
-                }
-                HorizontalDivider(color = BorderColor, thickness = 0.5.dp)
-            }
-
             // Stats 2x2
             item {
                 Row(
